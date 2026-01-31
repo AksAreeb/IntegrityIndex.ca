@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-base: #0f172a;
+  --slate-50: 248 250 252;
+  --slate-200: 226 232 240;
+  --slate-400: 148 163 184;
+  --navy-900: 15 23 42;
+}
+
+body {
+  background-color: var(--bg-base);
+}
+
+/* Mesh gradient animation */
+@keyframes mesh-gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%, 100% 50%, 50% 0%, 50% 100%;
+  }
+  25% {
+    background-position: 25% 75%, 75% 25%, 100% 50%, 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%, 0% 50%, 75% 100%, 25% 0%;
+  }
+  75% {
+    background-position: 75% 25%, 25% 75%, 50% 100%, 100% 0%;
+  }
+}
