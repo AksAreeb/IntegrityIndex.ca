@@ -1,0 +1,57 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Member {
+  id           String       @id
+  name         String
+  riding       String
+  party        String
+  jurisdiction String
+  disclosures  Disclosure[]
+  tradeTickers TradeTicker[]
+}
+
+model Disclosure {
+  id          Int    @id @default(autoincrement())
+  category    String
+  description String
+  memberId    String
+  member      Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model TradeTicker {
+  id        Int      @id @default(autoincrement())
+  symbol    String
+  type      String   // "BUY" | "SELL"
+  date      DateTime
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model Bill {
+  id        Int    @id @default(autoincrement())
+  number    String @unique
+  status    String
+  title     String?
+  keyVote   Boolean @default(false)
+}
+
+model AppStatus {
+  id                     Int       @id @default(1)
+  lastSuccessfulSyncAt   DateTime?
+}
+
+model StockPriceCache {
+  symbol      String   @id
+  price       Float
+  dailyChange Float
+  updatedAt   DateTime @updatedAt
+}

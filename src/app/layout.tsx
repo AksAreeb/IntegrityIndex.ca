@@ -28,6 +28,8 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+console.log("SUCCESS: Running from Local Drive");
+
 export default function RootLayout({
   children,
 }: Readonly<{

@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Home", href: "/" },
   { label: "Representatives", href: "/mps" },
   { label: "Map", href: "/explore" },
+  { label: "Legislation", href: "/bills" },
   { label: "Lab", href: "/lab" },
 ] as const;
 
@@ -28,7 +29,7 @@ export function AppShell({ children }: AppShellProps) {
       data-jurisdiction={jurisdiction}
     >
       {/* Sticky Institutional Banner */}
-      <header className="sticky top-0 z-50 bg-white border-b-[1px] border-[#E2E8F0]">
+      <header className="sticky top-0 z-50 bg-[#FFFFFF] border-b border-[#E2E8F0]">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-8">
           {/* Left: Branding Lockup */}
           <Link href="/" className="flex items-center gap-3 flex-shrink-0">

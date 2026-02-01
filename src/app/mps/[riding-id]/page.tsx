@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { getMemberByRidingId } from "@/lib/member-service";
 import { getMemberProfile } from "@/lib/mock-data";
+import { getKeyVoteBillNumbers } from "@/lib/api/legisinfo";
 import { AppShell } from "@/components/AppShell";
 import { MemberProfileTabs } from "@/components/member-profile/MemberProfileTabs";
 
@@ -9,7 +11,8 @@ interface PageProps {
 
 export default async function MemberProfilePage({ params }: PageProps) {
   const { "riding-id": ridingId } = await params;
-  const profile = getMemberProfile(ridingId);
+  const profile =
+    (await getMemberByRidingId(ridingId)) ?? getMemberProfile(ridingId);
 
   return (
     <AppShell>
@@ -30,7 +33,7 @@ export default async function MemberProfilePage({ params }: PageProps) {
           </p>
         </div>
 
-        <MemberProfileTabs profile={profile} />
+        <MemberProfileTabs profile={profile} keyBillIds={getKeyVoteBillNumbers()} />
       </div>
     </AppShell>
   );

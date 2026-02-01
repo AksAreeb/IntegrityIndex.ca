@@ -1,53 +1,94 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 
-const MOCK_ALERTS = [
-  "New Disclosure: MP for Oakville updated assets",
-  "Integrity Alert: 3 Members voted against declared interests",
-  "Legislative Update: Bill C-27 passes third reading",
-  "Transparency Notice: Annual audit complete for 44th Parliament",
-  "Disclosure Filed: Senator from Alberta reports new holdings",
-  "Vote Analysis: 12 Members abstained on environmental bill",
-] as const;
+interface LiveTickerItem {
+  memberName: string;
+  riding: string;
+  type: "BUY" | "SELL";
+  symbol: string;
+  memberId: string;
+  date: string;
+  currentPrice?: number;
+  dailyChange?: number;
+  changePercent?: number;
+  price?: number;
+}
+
+const FALLBACK_NOTICES = [
+  "MP (Vaughan) - BUY: SHOP (Shopify) - $15k-$50k",
+  "MPP (Ottawa) - SELL: ENB (Enbridge) - $1k-$15k",
+  "MP (Calgary Centre) - BUY: SU (Suncor) - $50k-$100k",
+  "MPP (Toronto Centre) - BUY: RY (Royal Bank) - $15k-$50k",
+  "MP (Vancouver Quadra) - SELL: CNR (Canadian National) - $1k-$15k",
+];
+
+function formatItem(item: LiveTickerItem): string {
+  const role = item.riding.toLowerCase().includes("riding")
+    ? "MP"
+    : item.memberId === "ontario"
+      ? "MPP"
+      : "MP";
+  const base = `${role} (${item.riding}) - ${item.type}: ${item.symbol}`;
+  const price = item.currentPrice ?? item.price;
+  const changePercent = item.changePercent;
+  if (price != null && changePercent != null) {
+    const sign = changePercent >= 0 ? "+" : "";
+    return `${base} | Now $${price.toFixed(2)} (${sign}${changePercent.toFixed(1)}%)`;
+  }
+  if (price != null) {
+    return `${base} | Now $${price.toFixed(2)}`;
+  }
+  return base;
+}
+
+function buildTickerSegment(items: LiveTickerItem[]): string {
+  return items.map(formatItem).join("  •  ").concat("  •  ");
+}
+
+function buildFallbackSegment(): string {
+  return FALLBACK_NOTICES.join("  •  ").concat("  •  ");
+}
+
+const fetcher = (url: string) =>
+  fetch(url).then((res) => (res.ok ? res.json() : { items: [] }));
 
 export function IntegrityTicker() {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const { data } = useSWR<{ items?: LiveTickerItem[] }>(
+    "/api/trades",
+    fetcher,
+    {
+      refreshInterval: 60_000,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    }
+  );
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % MOCK_ALERTS.length);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const items = data?.items ?? [];
+  const segment =
+    items.length > 0 ? buildTickerSegment(items) : buildFallbackSegment();
 
   return (
     <div
-      className="bg-[#F8FAFC] border-b border-[#E2E8F0] h-8 flex items-center px-6 overflow-hidden"
+      id="live-ledger-ticker"
+      className="bg-[#F8FAFC] border-b border-[#E2E8F0] h-9 flex items-center overflow-hidden w-full"
       role="status"
       aria-live="polite"
-      aria-atomic="true"
+      aria-label="Live trading and disclosure notices"
     >
-      <div className="max-w-7xl mx-auto w-full flex items-center gap-3">
-        <span className="flex items-center gap-2 text-xs font-sans font-semibold text-[#0F172A] uppercase tracking-wide flex-shrink-0">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="w-4 h-4 text-[var(--primary-accent)]"
-            aria-hidden="true"
-          >
-            <path
-              fillRule="evenodd"
-              d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
-              clipRule="evenodd"
-            />
-          </svg>
-          Live
+      <div className="flex items-center min-w-max animate-ticker-scroll py-2">
+        <span
+          className="font-mono text-[11px] text-[#64748B] whitespace-nowrap px-4 inline-block"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {segment}
         </span>
-        <span className="font-sans text-sm text-[#0F172A] animate-fade-in">
-          {MOCK_ALERTS[currentIndex]}
+        <span
+          className="font-mono text-[11px] text-[#64748B] whitespace-nowrap px-4 inline-block"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+          aria-hidden="true"
+        >
+          {segment}
         </span>
       </div>
     </div>

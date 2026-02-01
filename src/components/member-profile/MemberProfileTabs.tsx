@@ -9,6 +9,8 @@ import type { MemberProfile } from "@/lib/mock-data";
 
 interface Props {
   profile: MemberProfile;
+  /** Bill IDs to highlight as Key Votes on the Voting Record tab. */
+  keyBillIds?: string[];
 }
 
 const TAB_LABELS = [
@@ -18,7 +20,7 @@ const TAB_LABELS = [
   { value: "influence", label: "Correlation Chart" },
 ] as const;
 
-export function MemberProfileTabs({ profile }: Props) {
+export function MemberProfileTabs({ profile, keyBillIds }: Props) {
   return (
     <Tabs.Root defaultValue="summary" className="w-full">
       <Tabs.List
@@ -45,7 +47,7 @@ export function MemberProfileTabs({ profile }: Props) {
       </Tabs.Content>
 
       <Tabs.Content value="history" className="focus:outline-none">
-        <LegislativeHistory votes={profile.legislativeHistory} />
+        <LegislativeHistory votes={profile.legislativeHistory} keyBillIds={keyBillIds} />
       </Tabs.Content>
 
       <Tabs.Content value="influence" className="focus:outline-none">

@@ -36,6 +36,7 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [clickLoading, setClickLoading] = useState(false);
 
   const url = mode === "federal" ? FEDERAL_URL : ONTARIO_URL;
 
@@ -83,9 +84,19 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
   }, []);
 
   const handleClick = useCallback(
-    (_evt: React.MouseEvent, geo: { properties?: { ridingId?: string }; rsmKey?: string }) => {
+    async (_evt: React.MouseEvent, geo: { properties?: { ridingId?: string }; rsmKey?: string }) => {
       const rid = geo.properties?.ridingId ?? "unknown";
-      router.push(`/mps/${rid}`);
+      setClickLoading(true);
+      try {
+        const res = await fetch(`/api/member/by-riding?ridingId=${encodeURIComponent(rid)}`);
+        const data = res.ok ? await res.json() : null;
+        const memberId = data?.id ?? rid;
+        router.push(`/mps/${memberId}`);
+      } catch {
+        router.push(`/mps/${rid}`);
+      } finally {
+        setClickLoading(false);
+      }
     },
     [router]
   );
@@ -106,6 +117,17 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
 
   return (
     <div className="relative w-full h-full min-h-[400px]">
+      {clickLoading && (
+        <div
+          className="absolute inset-0 z-40 flex items-center justify-center bg-[#F1F5F9]/80 rounded-[4px]"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <p className="font-sans text-sm font-medium text-[#0F172A]">
+            Loading profile…
+          </p>
+        </div>
+      )}
       <ComposableMap
         projection="geoMercator"
         projectionConfig={projectionConfig}

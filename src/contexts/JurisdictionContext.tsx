@@ -11,6 +11,7 @@ interface JurisdictionContextValue {
 
 const JurisdictionContext = createContext<JurisdictionContextValue | null>(null);
 
+/** Strict design tokens: Federal Deep Navy, Provincial Slate. Used by Recharts and UI. */
 const COLORS = {
   FEDERAL: "#0F172A",
   PROVINCIAL: "#334155",
