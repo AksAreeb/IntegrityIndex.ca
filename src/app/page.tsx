@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { WaitlistForm } from "@/components/WaitlistForm";
 
 export default function Home() {
@@ -23,10 +24,10 @@ export default function Home() {
       <main className="relative z-10 flex flex-col flex-1 min-h-screen">
         {/* Hero Section */}
         <section
-          className="flex-1 flex flex-col items-center justify-center px-6 py-20 md:py-32 border-b border-white/[0.1]"
+          className="flex-1 flex flex-col items-center justify-center text-center px-6 py-20 md:py-32 border-b border-white/[0.1]"
           aria-labelledby="hero-heading"
         >
-          <div className="max-w-4xl mx-auto text-center">
+          <div className="max-w-4xl flex flex-col items-center text-center">
             <h1
               id="hero-heading"
               className="font-serif text-4xl md:text-5xl lg:text-6xl font-semibold text-white tracking-tight mb-6"
@@ -38,6 +39,12 @@ export default function Home() {
               legislative outcomes in Canada.
             </p>
             <WaitlistForm />
+            <Link
+              href="/dashboard"
+              className="mt-8 inline-block text-sm font-medium text-white/80 hover:text-white underline underline-offset-4"
+            >
+              Explore the Interactive Governance Map
+            </Link>
           </div>
         </section>
 

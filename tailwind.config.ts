@@ -10,6 +10,7 @@ export default {
     extend: {
       fontFamily: {
         serif: ["var(--font-ibm-plex-serif)", "Georgia", "serif"],
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
     },
   },
