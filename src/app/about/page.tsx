@@ -1,5 +1,11 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
+import { SITE_URL } from "@/lib/constants";
+
+export const metadata: Metadata = {
+  alternates: { canonical: `${SITE_URL}/about` },
+};
 
 const PENALTIES = [
   { code: "P_T", name: "Trade volume", math: "−5 × trades (cap 30)", deduction: "−5 points per trade (buy or sell) in the last 12 months. Cap: −30 points.", why: "Frequent trading while in office can create conflicts with the public interest." },
@@ -12,41 +18,60 @@ export default function AboutPage() {
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto px-6 py-20 md:py-24">
-        <div className="mb-12 text-center">
-          <h1 className="font-serif text-3xl md:text-4xl font-bold text-[#0F172A] mb-4">
-            About the Integrity Score
+        {/* Vision Statement */}
+        <div className="mb-16 text-center">
+          <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold text-[#0F172A] mb-6">
+            Strengthening the Fabric of Canadian Democracy.
           </h1>
-          <p className="text-lg text-[#64748B] font-sans max-w-3xl mx-auto">
-            A simple, transparent way to see how we assess parliamentary accountability.
+          <p className="text-lg md:text-xl text-[#64748B] font-sans max-w-3xl mx-auto leading-relaxed">
+            Integrity Index is a non-partisan, open-source initiative dedicated to providing every Canadian citizen with real-time transparency into the financial interests of their elected officials.
           </p>
         </div>
 
-        {/* Mission Statement - Multi-column layout */}
-        <section className="mb-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-            <div>
-              <h2 className="font-serif text-2xl font-semibold text-[#0F172A] mb-4">
-                Our Mission
-              </h2>
-              <p className="text-base text-[#0F172A] leading-relaxed mb-4">
-                IntegrityIndex.ca provides Canadians with transparent, accessible information about their elected representatives' financial interests and potential conflicts of interest.
-              </p>
-              <p className="text-base text-[#64748B] leading-relaxed">
-                We believe that democracy works best when citizens have the tools to hold their representatives accountable. Our Integrity Score is one way to help voters understand how their MP or MPP's financial activities might intersect with their legislative work.
+        {/* Three Pillars */}
+        <section className="mb-20" aria-labelledby="three-pillars-heading">
+          <h2 id="three-pillars-heading" className="sr-only">
+            Three Pillars of Integrity Index
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="border-2 border-[#0F172A] rounded-[4px] p-6 bg-white">
+              <h3 className="font-serif text-xl font-semibold text-[#0F172A] mb-3">
+                Radical Transparency
+              </h3>
+              <p className="text-base text-[#64748B] font-sans leading-relaxed">
+                Real-time tracking of Federal and Provincial disclosures so citizens can see when and how their representatives report their financial interests.
               </p>
             </div>
-            <div>
-              <h2 className="font-serif text-2xl font-semibold text-[#0F172A] mb-4">
-                How It Works
-              </h2>
-              <p className="text-base text-[#0F172A] leading-relaxed mb-4">
-                Every member starts with a score of 100. We subtract points for four types of risk factors: trade volume, sector conflicts, late filings, and legislative proximity to personal investments.
+            <div className="border-2 border-[#0F172A] rounded-[4px] p-6 bg-white">
+              <h3 className="font-serif text-xl font-semibold text-[#0F172A] mb-3">
+                Public Accountability
+              </h3>
+              <p className="text-base text-[#64748B] font-sans leading-relaxed">
+                An algorithmic &lsquo;Integrity Rank&rsquo; that rewards pro-active filing and clear disclosure, making accountability visible to every voter.
               </p>
-              <p className="text-base text-[#64748B] leading-relaxed">
-                The result is a 0–100 Integrity Score with a letter grade (A–F). This score is for transparency only and is not a legal or official finding.
+            </div>
+            <div className="border-2 border-[#0F172A] rounded-[4px] p-6 bg-white">
+              <h3 className="font-serif text-xl font-semibold text-[#0F172A] mb-3">
+                Democratic Accessibility
+              </h3>
+              <p className="text-base text-[#64748B] font-sans leading-relaxed">
+                WCAG-compliant design ensuring all Canadians can access this data, regardless of ability or technology.
               </p>
             </div>
           </div>
+        </section>
+
+        {/* How the Score Works */}
+        <section className="mb-12">
+          <h2 className="font-serif text-2xl font-semibold text-[#0F172A] mb-4">
+            How the Integrity Score Works
+          </h2>
+          <p className="text-base text-[#0F172A] leading-relaxed mb-4">
+            Every member starts with a score of 100. We subtract points for four types of risk factors: trade volume, sector conflicts, late filings, and legislative proximity to personal investments.
+          </p>
+          <p className="text-base text-[#64748B] leading-relaxed">
+            The result is a 0–100 Integrity Score with a letter grade (A–F). This score is for transparency only and is not a legal or official finding.
+          </p>
         </section>
 
         {/* Formula: LaTeX-style metric block */}
@@ -114,10 +139,11 @@ export default function AboutPage() {
               All data comes directly from official government sources:
             </p>
             <ul className="text-sm text-[#64748B] font-sans space-y-2 list-disc list-inside">
-              <li>Conflict of Interest and Ethics Commissioner (CIEC)</li>
+              <li>Federal Ethics Commissioner</li>
               <li>LEGISinfo (Parliament of Canada)</li>
               <li>House of Commons Member Directory</li>
               <li>Ontario Legislative Assembly</li>
+              <li>Open Source Verification</li>
             </ul>
           </div>
           <div>
@@ -125,7 +151,7 @@ export default function AboutPage() {
               Legal Notice
             </h2>
             <p className="text-base text-[#64748B] leading-relaxed">
-              This is version 1 of our methodology. We built it to be easy to understand for Canadian voters. Grades are for transparency only and are not a legal or official finding.
+              This is version 1 of our methodology. We built it to be easy to understand for Canadian voters. Our methodology is available for Open Source Verification. Grades are for transparency only and are not a legal or official finding.
             </p>
           </div>
         </div>

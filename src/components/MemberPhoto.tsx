@@ -22,6 +22,8 @@ interface MemberPhotoProps {
   size?: number;
   className?: string;
   alt?: string;
+  /** Set true for above-the-fold photos (e.g. individual member page) for LCP. */
+  priority?: boolean;
 }
 
 export function MemberPhoto({
@@ -31,6 +33,7 @@ export function MemberPhoto({
   size,
   className = "object-cover w-full h-full",
   alt = "",
+  priority = false,
 }: MemberPhotoProps) {
   const [errorState, setErrorState] = useState<"none" | "tried44" | "placeholder">("none");
   const fallback44 =
@@ -69,6 +72,7 @@ export function MemberPhoto({
       width={w}
       height={h}
       className={className}
+      priority={priority}
       unoptimized={!isKnownHost || errorState !== "none"}
       onError={handleError}
     />

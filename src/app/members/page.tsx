@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import { MembersClient } from "./MembersClient";
+import { SITE_URL } from "@/lib/constants";
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  alternates: { canonical: `${SITE_URL}/members` },
+};
 
 export default async function MembersPage() {
   return (

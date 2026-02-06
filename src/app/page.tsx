@@ -1,9 +1,15 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import { CommandKSearchBar } from "@/components/CommandKSearchBar";
 import { prisma } from "@/lib/db";
+import { SITE_URL } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  alternates: { canonical: SITE_URL },
+};
 
 const MISSION_ITEMS = [
   {

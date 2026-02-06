@@ -1,6 +1,5 @@
 /**
  * Minimal fallback data for when real data is unavailable.
- * Replaces mock-data.ts with lightweight implementations.
  */
 
 import type { MemberProfile, Jurisdiction } from "@/types";

@@ -1,13 +1,19 @@
+import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import { BillCardList } from "./BillCardList";
 import { BillsDataTable } from "./BillsDataTable";
 import { prisma } from "@/lib/db";
+import { SITE_URL } from "@/lib/constants";
 import { getBillSummary } from "@/lib/fallback-data";
 import { getLinkedTickers, getSectorImpact } from "@/lib/bill-sectors";
 import { getContextualBillSummary } from "@/lib/bills";
 import { fetchLegisinfoBillsApi, isKeyVoteBill } from "@/lib/api/legisinfo";
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  alternates: { canonical: `${SITE_URL}/bills` },
+};
 
 export default async function BillsPage() {
   const legisBills = await fetchLegisinfoBillsApi();

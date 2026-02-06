@@ -1,7 +1,13 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import { DashboardMapAndLeaders } from "./DashboardMapAndLeaders";
 import { prisma } from "@/lib/db";
+import { SITE_URL } from "@/lib/constants";
+
+export const metadata: Metadata = {
+  alternates: { canonical: `${SITE_URL}/dashboard` },
+};
 
 function integrityScore(tradeCount: number): number {
   return Math.max(0, 100 - tradeCount * 5);

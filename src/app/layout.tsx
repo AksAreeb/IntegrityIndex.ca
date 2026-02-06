@@ -17,9 +17,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "IntegrityIndex.ca: National Transparency Framework",
+  metadataBase: new URL("https://integrityindex.ca"),
+  title: {
+    default: "Integrity Index | Canada Member Disclosure Tracker",
+    template: "%s | Integrity Index",
+  },
   description:
-    "Digitizing the connection between financial disclosures and legislative outcomes in Canada. National standard for parliamentary accountability.",
+    "The definitive real-time dashboard for Canadian MP and MPP financial disclosures and stock trades.",
   icons: {
     icon: "/logo.png",
   },

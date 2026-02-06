@@ -3,6 +3,9 @@
  * Use NEXT_PUBLIC_* for values needed in the browser.
  */
 
+/** Canonical site URL for SEO (sitemap, robots, canonical tags). */
+export const SITE_URL = "https://integrityindex.ca";
+
 /** Primary GeoJSON source for federal electoral districts (map boundaries). */
 export const FEDERAL_URL_PRIMARY =
   "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/canada-electoral-districts.geojson";

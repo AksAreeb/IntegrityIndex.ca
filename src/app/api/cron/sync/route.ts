@@ -63,13 +63,16 @@ export async function GET(request: Request) {
   try {
     const runSync = await shouldRunSync();
     if (!runSync) {
+      console.log("[cron/sync] Skipping sync - database has recent data");
       return NextResponse.json(
         { ok: true, skipped: true, reason: "Database has data and a recent sync; skipping." },
         { status: 200 }
       );
     }
 
+    console.log("[cron/sync] Starting sync - database is empty or outdated");
     const data = await runScraperSync();
+    console.log("[cron/sync] Sync completed:", { ok: data.ok, steps: data.results?.length ?? 0 });
     return NextResponse.json(data, { status: data.ok ? 200 : 500 });
   } catch (e) {
     console.error("[cron/sync] Sync failed:", e);

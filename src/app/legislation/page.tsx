@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import { LegislationTable } from "./LegislationTable";
 import { prisma } from "@/lib/db";
+import { SITE_URL } from "@/lib/constants";
 import { getBillSummary } from "@/lib/fallback-data";
 import { getLinkedTickers, getSectorImpact } from "@/lib/bill-sectors";
 import { getContextualBillSummary } from "@/lib/bills";
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
   title: "Legislation - Conflict Audit",
   description:
     "Analyzing financial stakeholders for bills in the 45th Parliament.",
+  alternates: { canonical: `${SITE_URL}/legislation` },
 };
 
 export default async function LegislationPage() {

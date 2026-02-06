@@ -1,7 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import type { Jurisdiction } from "@/types";
+
+const STORAGE_KEY = "integrity-jurisdiction";
 
 interface JurisdictionContextValue {
   jurisdiction: Jurisdiction;
@@ -17,11 +19,25 @@ const COLORS = {
   PROVINCIAL: "#334155",
 } as const;
 
+function readStored(): Jurisdiction {
+  if (typeof window === "undefined") return "FEDERAL";
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw === "FEDERAL" || raw === "PROVINCIAL") return raw;
+  return "FEDERAL";
+}
+
 export function JurisdictionProvider({ children }: { children: React.ReactNode }) {
   const [jurisdiction, setJurisdictionState] = useState<Jurisdiction>("FEDERAL");
 
+  useEffect(() => {
+    setJurisdictionState(readStored());
+  }, []);
+
   const setJurisdiction = useCallback((j: Jurisdiction) => {
     setJurisdictionState(j);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, j);
+    }
   }, []);
 
   const value: JurisdictionContextValue = {

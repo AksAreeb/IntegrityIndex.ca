@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
+import { SITE_URL } from "@/lib/constants";
 import { AppShell } from "@/components/AppShell";
 import { MemberDisclosureTable } from "./MemberDisclosureTable";
 import { MemberTradeTable } from "./MemberTradeTable";
@@ -21,9 +22,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     select: { name: true, riding: true },
   });
   if (!member) return { title: "Member Not Found" };
+  const canonical = `${SITE_URL}/member/${id}`;
   return {
     title: `${member.name} - Financial Integrity Profile`,
     description: `View stock trades and conflict-of-interest audits for ${member.name}, representing ${member.riding}.`,
+    alternates: { canonical },
   };
 }
 
@@ -161,8 +164,25 @@ export default async function MemberProfileMasterPage({
         ? "/members?jurisdiction=provincial"
         : "/members";
 
+  const jobTitle =
+    member.jurisdiction.toUpperCase() === "FEDERAL"
+      ? "Member of Parliament"
+      : "Member of Provincial Parliament";
+  const personJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: member.name,
+    jobTitle,
+    description: `${jobTitle} for ${member.riding}, ${member.jurisdiction}. Financial disclosure and integrity profile.`,
+    url: `${SITE_URL}/member/${member.id}`,
+  };
+
   return (
     <AppShell>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+      />
       <div className="max-w-5xl mx-auto px-6 py-8">
         <Link
           href={backHref}
@@ -185,6 +205,7 @@ export default async function MemberProfileMasterPage({
               height={128}
               className="object-cover w-full h-full"
               alt={`Photo of ${member.name}`}
+              priority
             />
           </div>
           <div className="flex-1 min-w-0">
