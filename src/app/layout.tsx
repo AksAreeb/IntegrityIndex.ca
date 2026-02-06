@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
-import { IBM_Plex_Serif } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { IBM_Plex_Serif, Inter } from "next/font/google";
+import { JurisdictionProvider } from "@/contexts/JurisdictionContext";
+import { logger } from "@/lib/logger";
 import "./globals.css";
 
 const ibmPlexSerif = IBM_Plex_Serif({
@@ -8,11 +10,26 @@ const ibmPlexSerif = IBM_Plex_Serif({
   weight: ["400", "500", "600", "700"],
 });
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
 export const metadata: Metadata = {
-  title: "IntegrityIndex.ca | The National Standard for Parliamentary Accountability",
+  title: "IntegrityIndex.ca: National Transparency Framework",
   description:
-    "Digitizing the connection between financial disclosures and legislative outcomes in Canada.",
+    "Digitizing the connection between financial disclosures and legislative outcomes in Canada. National standard for parliamentary accountability.",
+  icons: {
+    icon: "/logo.png",
+  },
 };
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
+logger.info("App initialized");
 
 export default function RootLayout({
   children,
@@ -20,8 +37,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={ibmPlexSerif.variable}>
-      <body className="antialiased">{children}</body>
+    <html lang="en" className={`${ibmPlexSerif.variable} ${inter.variable}`}>
+      <body className="antialiased font-sans bg-[#FFFFFF] text-[#0F172A]">
+        <JurisdictionProvider>{children}</JurisdictionProvider>
+      </body>
     </html>
   );
 }

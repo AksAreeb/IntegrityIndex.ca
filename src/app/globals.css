@@ -3,18 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --bg-base: #0f172a;
-  --slate-50: 248 250 252;
-  --slate-200: 226 232 240;
-  --slate-400: 148 163 184;
-  --navy-900: 15 23 42;
+  --primary-accent: #0F172A;
+  --bg-base: #FFFFFF;
+  --border-color: #E2E8F0;
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+}
+
+[data-jurisdiction="FEDERAL"] {
+  --primary-accent: #0F172A;
+}
+
+[data-jurisdiction="PROVINCIAL"] {
+  --primary-accent: #334155;
 }
 
 body {
-  background-color: var(--bg-base);
+  background-color: #FFFFFF;
+  color: #0F172A;
 }
 
-/* Mesh gradient animation */
+/* Mesh gradient animation for landing page */
 @keyframes mesh-gradient-shift {
   0%,
   100% {
@@ -29,4 +38,34 @@ body {
   75% {
     background-position: 75% 25%, 25% 75%, 50% 100%, 100% 0%;
   }
+}
+
+/* Fade-in animation for ticker */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out;
+}
+
+/* Live Ledger ticker marquee */
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-ticker-scroll {
+  animation: ticker-scroll 60s linear infinite;
 }

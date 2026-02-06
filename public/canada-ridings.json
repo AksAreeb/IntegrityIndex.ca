@@ -1,0 +1,57 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Ontario",
+        "ENNAME": "Ontario",
+        "ridingName": "Ontario",
+        "ridingId": "ontario"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-95, 42], [-74, 42], [-74, 57], [-95, 57], [-95, 42]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Quebec",
+        "ENNAME": "Quebec",
+        "ridingName": "Quebec",
+        "ridingId": "quebec"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-80, 45], [-57, 45], [-57, 63], [-80, 63], [-80, 45]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "British Columbia",
+        "ENNAME": "British Columbia",
+        "ridingName": "British Columbia",
+        "ridingId": "british-columbia"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-139, 49], [-114, 49], [-114, 60], [-139, 60], [-139, 49]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Alberta",
+        "ENNAME": "Alberta",
+        "ridingName": "Alberta",
+        "ridingId": "alberta"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-120, 49], [-110, 49], [-110, 60], [-120, 60], [-120, 49]]]
+      }
+    }
+  ]
+}
