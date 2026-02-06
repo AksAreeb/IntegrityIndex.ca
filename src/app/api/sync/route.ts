@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { scrapeCIEC, getMemberPhotoUrl as getFederalPhotoUrl } from "@/lib/scrapers/ciecScraper";
+import {
+  scrapeCIEC,
+  getMemberPhotoUrl as getFederalPhotoUrl,
+  dryRunCIEC,
+  looksLikeTickerSymbol,
+} from "@/lib/scrapers/ciecScraper";
 import { getLiveStockPrice } from "@/lib/api/stocks";
 import { syncBillsToDatabase } from "@/lib/api/legisinfo";
 import { setLastSuccessfulSync } from "@/lib/admin-health";
@@ -14,21 +19,34 @@ const OLA_MPP_PHOTO_BASE =
 
 /**
  * GET /api/sync — Institutional Audit:
+ * ?dryRun=ciec — Only run CIEC dry run (verify connectivity to prciec-rpccie.parl.gc.ca).
+ * Otherwise:
  * A) CIEC scraper for sample members -> upsert Disclosure
  * B) Finnhub latest prices for TradeTicker symbols (no DB store)
  * C) LEGISinfo latest bills
  * D) Upsert Bill, Member, Disclosure, TradeTicker
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get("dryRun") === "ciec") {
+      const dryRun = await dryRunCIEC();
+      return NextResponse.json({
+        ok: dryRun.ok,
+        dryRun: "ciec",
+        ciec: dryRun,
+      });
+    }
+
     const results: { step: string; ok: boolean; detail?: string }[] = [];
 
-    // Step A: CIEC scraper — find new disclosures for sample members
+    // Step A: CIEC scraper — disclosures + Material Change -> TradeTicker (date_disclosed)
     try {
       const sampleMembers = await prisma.member.findMany({
         take: 5,
         select: { id: true },
       });
+      let tradeTickersCreated = 0;
       for (const m of sampleMembers) {
         const rows = await scrapeCIEC(m.id);
         for (const row of rows.slice(0, 3)) {
@@ -39,9 +57,24 @@ export async function GET() {
               description: (row.assetName ?? "").slice(0, 500),
             },
           }).catch(() => {});
+
+          if (row.isMaterialChange && row.date_disclosed && looksLikeTickerSymbol(row.assetName ?? "")) {
+            const symbol = (row.assetName ?? "").trim().toUpperCase();
+            const disclosureDate = new Date(row.date_disclosed + "T12:00:00Z");
+            if (!Number.isNaN(disclosureDate.getTime())) {
+              await prisma.tradeTicker.create({
+                data: {
+                  memberId: m.id,
+                  symbol,
+                  type: "BUY",
+                  date: disclosureDate,
+                },
+              }).then(() => { tradeTickersCreated += 1; }).catch(() => {});
+            }
+          }
         }
       }
-      results.push({ step: "A_CIEC", ok: true });
+      results.push({ step: "A_CIEC", ok: true, detail: tradeTickersCreated ? `${tradeTickersCreated} trade(s) from material changes` : undefined });
     } catch (e) {
       results.push({
         step: "A_CIEC",

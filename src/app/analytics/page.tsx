@@ -3,10 +3,23 @@ import { LobbyistHeatmap } from "@/components/experimental/LobbyistHeatmap";
 import { WealthTimeline, type DisclosurePoint } from "@/components/experimental/WealthTimeline";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export default async function AnalyticsPage() {
   const memberWithDisclosures = await prisma.member.findFirst({
     where: { disclosures: { some: {} } },
-    include: { disclosures: true },
+    select: {
+      id: true,
+      disclosures: {
+        select: {
+          id: true,
+          category: true,
+          description: true,
+          sourceUrl: true,
+          disclosureDate: true,
+        },
+      },
+    },
     orderBy: { id: "asc" },
   });
 
@@ -15,19 +28,32 @@ export default async function AnalyticsPage() {
         const list = memberWithDisclosures.disclosures;
         if (list.length === 0) return undefined;
         const sorted = [...list].sort((a, b) => {
-          const da = a.disclosureDate?.getTime() ?? 0;
-          const db = b.disclosureDate?.getTime() ?? 0;
+          const da = a.disclosureDate?.getTime?.() ?? 0;
+          const db = b.disclosureDate?.getTime?.() ?? 0;
           return da - db;
         });
-        return sorted.map((d, i) => ({
-          date: d.disclosureDate?.toISOString().slice(0, 10) ?? "",
-          value: 100 + i * 10,
-          label: d.disclosureDate
-            ? d.disclosureDate.toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })
-            : list.length === 1
-              ? "Baseline"
-              : `Disclosure ${i + 1}`,
-        }));
+        return sorted.map((d, i) => {
+          const dateRaw = d.disclosureDate;
+          const dateStr =
+            dateRaw != null
+              ? dateRaw instanceof Date
+                ? dateRaw.toISOString().slice(0, 10)
+                : new Date(dateRaw).toISOString().slice(0, 10)
+              : "";
+          const label =
+            dateRaw != null
+              ? dateRaw instanceof Date
+                ? dateRaw.toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })
+                : new Date(dateRaw).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })
+              : list.length === 1
+                ? "Baseline"
+                : "Unknown Date";
+          return {
+            date: dateStr || "Unknown Date",
+            value: 100 + i * 10,
+            label,
+          };
+        });
       })()
     : undefined;
 
@@ -53,12 +79,25 @@ export default async function AnalyticsPage() {
         })()
       : null;
 
-  const assetsFromDisclosures = memberWithDisclosures?.disclosures?.map((d, i) => ({
-    id: `disclosure-${d.id}`,
-    type: d.category.includes("Equity") || d.category.includes("Stock") ? "Stocks" as const : "Other" as const,
-    description: d.description?.slice(0, 200) ?? d.category,
-    industryTags: [] as string[],
-  })) ?? [];
+  const assetsFromDisclosures =
+    memberWithDisclosures?.disclosures?.map((d) => {
+      const disclosureDateRaw = d.disclosureDate;
+      const disclosureDate: string =
+        disclosureDateRaw != null
+          ? disclosureDateRaw instanceof Date
+            ? disclosureDateRaw.toISOString().slice(0, 10)
+            : new Date(disclosureDateRaw).toISOString().slice(0, 10)
+          : "Unknown Date";
+      return {
+        id: `disclosure-${d.id}`,
+        type: d.category.includes("Equity") || d.category.includes("Stock") ? ("Stocks" as const) : ("Other" as const),
+        description: d.description?.slice(0, 200) ?? d.category,
+        industryTags: [] as string[],
+        disclosureDate,
+        sourceUrl: d.sourceUrl ?? null,
+        amountRange: null as string | null,
+      };
+    }) ?? [];
 
   return (
     <AppShell>

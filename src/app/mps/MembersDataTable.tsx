@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { MemberPhoto } from "@/components/MemberPhoto";
 
 interface MemberRow {
   id: string;

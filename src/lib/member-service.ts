@@ -14,9 +14,14 @@ export async function getMemberByRidingId(
   try {
     const member = await prisma.member.findUnique({
       where: { id },
-      include: {
-        disclosures: true,
-        tradeTickers: true,
+      select: {
+        id: true,
+        name: true,
+        riding: true,
+        jurisdiction: true,
+        party: true,
+        disclosures: { select: { id: true, category: true, description: true } },
+        tradeTickers: { select: { symbol: true } },
       },
     });
     if (!member) return null;
@@ -57,7 +62,49 @@ export async function getMemberByRidingId(
       industryDistribution,
       preOfficeAssets: mock.preOfficeAssets,
     };
-  } catch {
+  } catch (e) {
+    console.error("[member-service]: getMemberByRidingId failed", e);
+    return null;
+  }
+}
+
+/** Resolves riding name or slug from GeoJSON to member.id for map click routing. */
+export async function resolveMemberIdFromRiding(
+  ridingNameOrSlug: string,
+  jurisdiction: "FEDERAL" | "PROVINCIAL"
+): Promise<string | null> {
+  const slug = ridingNameOrSlug.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  const prefix = jurisdiction === "FEDERAL" ? "FED-" : "ON-";
+
+  try {
+    // 1. Try direct id match (e.g. FED-justin-trudeau, ON-jennifer-mccullough)
+    const byId = await prisma.member.findUnique({
+      where: { id: slug },
+      select: { id: true },
+    });
+    if (byId) return byId.id;
+
+    // 2. Try prefixed slug (FED-{slug} or ON-{slug})
+    const prefixed = prefix + slug.replace(/^(fed-|on-)/, "");
+    const byPrefixed = await prisma.member.findUnique({
+      where: { id: prefixed },
+      select: { id: true },
+    });
+    if (byPrefixed) return byPrefixed.id;
+
+    // 3. Try riding name match (member.riding)
+    const member = await prisma.member.findFirst({
+      where: {
+        riding: { equals: ridingNameOrSlug, mode: "insensitive" },
+        jurisdiction,
+      },
+      select: { id: true },
+    });
+    if (member) return member.id;
+
+    return null;
+  } catch (e) {
+    console.error("[member-service]: resolveMemberIdFromRiding failed", e);
     return null;
   }
 }

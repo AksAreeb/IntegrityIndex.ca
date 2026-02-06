@@ -2,14 +2,28 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useJurisdiction } from "@/contexts/JurisdictionContext";
 import { JurisdictionSwitcher } from "./JurisdictionSwitcher";
-import { StockTicker } from "./StockTicker";
 import { GlobalSearch } from "@/components/GlobalSearch";
+
+const StockTicker = dynamic(() => import("./StockTicker").then((mod) => mod.StockTicker), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="bg-[#F8FAFC] border-b border-[#E2E8F0] min-h-[52px] flex items-center"
+      role="status"
+      aria-label="Loading ticker"
+    >
+      <span className="font-mono text-[11px] text-[#94A3B8] px-4">Loading…</span>
+    </div>
+  ),
+});
 
 const NAV_ITEMS = [
   { label: "Home", href: "/" },
+  { label: "Members", href: "/members" },
   { label: "Representatives", href: "/mps" },
   { label: "Map", href: "/explore" },
   { label: "Legislation", href: "/legislation" },

@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
-import { getMemberByRidingId } from "@/lib/member-service";
+import { getMemberByRidingId, resolveMemberIdFromRiding } from "@/lib/member-service";
 import { getMemberByRiding } from "@/lib/db-utils";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const ridingId = searchParams.get("ridingId");
+  const ridingName = searchParams.get("ridingName");
   const ridingNumParam = searchParams.get("ridingNum");
-  const jurisdiction = searchParams.get("jurisdiction") ?? undefined;
+  const jurisdiction = searchParams.get("jurisdiction") as "FEDERAL" | "PROVINCIAL" | undefined;
+
+  if (ridingName && jurisdiction) {
+    const memberId = await resolveMemberIdFromRiding(ridingName, jurisdiction);
+    if (!memberId) {
+      return NextResponse.json({ error: "Member not found" }, { status: 404 });
+    }
+    return NextResponse.json({ id: memberId });
+  }
 
   if (ridingNumParam != null) {
     const ridingNum = Number(ridingNumParam);

@@ -1,23 +1,24 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { normalizeRidingKey } from "@/lib/geo-utils";
 
 export interface RidingActivityItem {
-  ridingId: string;
+  /** Stable key for map data-join (matches geo.properties.ridingId). */
+  ridingKey: string;
   ridingName: string;
-  party: string;
+  party: string | null;
+  /** Number of Material Change disclosures (TradeTicker rows) for this riding's MP. */
   tradeCount: number;
 }
 
 /**
- * GET /api/riding-activity — ridingId -> party and trade count for map highlighting.
+ * GET /api/riding-activity — per-riding trade count for choropleth data-join.
+ * Key by ridingKey (normalized riding name) so the map can join to GeoJSON/TopoJSON features.
  */
 export async function GET() {
   try {
     const members = await prisma.member.findMany({
       where: { jurisdiction: "FEDERAL" },
-      include: {
-        _count: { select: { tradeTickers: true } },
-      },
       select: {
         id: true,
         riding: true,
@@ -27,14 +28,15 @@ export async function GET() {
     });
 
     const items: RidingActivityItem[] = members.map((m) => ({
-      ridingId: m.id,
+      ridingKey: normalizeRidingKey(m.riding),
       ridingName: m.riding,
       party: m.party,
       tradeCount: m._count.tradeTickers,
     }));
 
     return NextResponse.json({ items });
-  } catch {
+  } catch (e) {
+    console.error("[riding-activity]: GET failed", e);
     return NextResponse.json({ items: [] }, { status: 200 });
   }
 }

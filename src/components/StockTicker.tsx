@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import useSWR from "swr";
 import { MemberPhoto } from "@/components/MemberPhoto";
 
@@ -17,6 +17,8 @@ export interface TickerItem {
   memberId: string;
   date: string;
   dateIso: string;
+  /** Disclosure date for "Disclosed: [Date]" label (YYYY-MM-DD). */
+  disclosureDate: string;
   currentPrice?: number;
   dailyChange?: number;
   changePercent?: number;
@@ -38,18 +40,21 @@ function getPartyBorder(party?: string): string {
   return PARTY_BORDER[party] ?? DEFAULT_BORDER;
 }
 
-function relativeTime(isoDate: string): string {
-  const d = new Date(isoDate);
+/** Format disclosure date: current year + within 6 months = no year; older = include year (Latest Available context). */
+function formatDisclosureDate(disclosureDate: string): string {
+  const d = new Date(disclosureDate + "T12:00:00Z");
+  if (Number.isNaN(d.getTime())) return `Disclosed: ${disclosureDate}`;
   const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffM = Math.floor(diffMs / 60000);
-  const diffH = Math.floor(diffMs / 3600000);
-  const diffD = Math.floor(diffMs / 86400000);
-  if (diffM < 1) return "just now";
-  if (diffM < 60) return `${diffM}m ago`;
-  if (diffH < 24) return `${diffH}h ago`;
-  if (diffD < 7) return `${diffD}d ago`;
-  return d.toLocaleDateString();
+  const currentYear = now.getFullYear();
+  const sixMonthsAgo = new Date(now);
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const isCurrentYear = d.getFullYear() === currentYear;
+  const isWithinSixMonths = d >= sixMonthsAgo;
+  const showYear = !isCurrentYear || !isWithinSixMonths;
+  const formatted = showYear
+    ? d.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })
+    : d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+  return `Disclosed: ${formatted}`;
 }
 
 function shortName(fullName: string): string {
@@ -60,15 +65,34 @@ function shortName(fullName: string): string {
   return fullName.slice(0, 20);
 }
 
-const fetcher = (url: string) =>
-  fetch(url).then((res) => (res.ok ? res.json() : { items: [] }));
+const fetcher = async (url: string) => {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error("[StockTicker]: Fetch failed", res.status, res.statusText);
+      return { items: [] };
+    }
+    return res.json();
+  } catch (err) {
+    console.error("[StockTicker]: Network error", err);
+    return { items: [] };
+  }
+};
 
-export function StockTicker() {
-  const { data, dataUpdatedAt } = useSWR<{ items?: TickerItem[] }>(
+function StockTickerInner() {
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const { data, error, isLoading } = useSWR<{ items?: TickerItem[] }>(
     "/api/trades",
     fetcher,
-    { refreshInterval: 60_000, revalidateOnFocus: true, revalidateOnReconnect: true }
+    {
+      refreshInterval: 60_000,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      onSuccess: () => setLastUpdated(new Date()),
+    }
   );
+
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60_000);
@@ -77,7 +101,8 @@ export function StockTicker() {
 
   const items = data?.items ?? [];
   const isLive =
-    dataUpdatedAt != null && now - dataUpdatedAt < LIVE_THRESHOLD_MS;
+    lastUpdated != null && now - lastUpdated.getTime() < LIVE_THRESHOLD_MS;
+  const showEmptyState = !isLoading && !error && items.length === 0;
 
   return (
     <div
@@ -97,9 +122,18 @@ export function StockTicker() {
         </span>
       )}
       <div className="flex items-center gap-6 min-w-max animate-ticker-scroll py-2 flex-1 overflow-hidden">
-        {items.length === 0 ? (
+        {error ? (
+          <span className="font-mono text-[11px] text-amber-600 px-4">
+            Live data currently unavailable
+          </span>
+        ) : isLoading ? (
+          <span className="font-mono text-[11px] text-[#64748B] px-4 flex items-center gap-2" aria-busy="true">
+            <span className="inline-block w-3 h-3 border-2 border-[#64748B]/30 border-t-[#64748B] rounded-full animate-spin" />
+            Fetching latest 2026 disclosures...
+          </span>
+        ) : showEmptyState ? (
           <span className="font-mono text-[11px] text-[#64748B] px-4">
-            Awaiting next CIEC filing update...
+            No disclosures found. Check back for new 2026 data.
           </span>
         ) : (
           <>
@@ -132,7 +166,7 @@ export function StockTicker() {
                       </span>
                       <span className="font-sans text-[11px] text-[#0F172A] whitespace-nowrap">
                         <span className="font-medium">{shortName(item.memberName)}</span>{" "}
-                        {action} {item.symbol} @ {price} • {relativeTime(item.dateIso)}
+                        {action} {item.symbol} @ {price} • {formatDisclosureDate(item.disclosureDate ?? item.date)}
                       </span>
                     </Link>
                   );
@@ -145,3 +179,5 @@ export function StockTicker() {
     </div>
   );
 }
+
+export const StockTicker = memo(StockTickerInner);

@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { getLinkedTickers, getSectorImpact } from "@/lib/bill-sectors";
+import type { BillSummary } from "@/lib/mock-data";
+
+/** Minimal fallback when getBillSummary returns undefined; has plainLanguage only */
+type BillSummaryFallback = { plainLanguage: string };
 
 interface BillWithSummary {
   id: number;
@@ -9,9 +13,13 @@ interface BillWithSummary {
   status: string;
   title: string;
   keyVote: boolean;
-  summary: ReturnType<typeof import("@/lib/mock-data").getBillSummary>;
+  summary: BillSummary | BillSummaryFallback | undefined;
   /** Member IDs with trade exposure in this bill's sector (for Stakeholder Warning) */
   stakeholderMemberIds?: string[];
+}
+
+function isFullBillSummary(s: BillSummary | BillSummaryFallback | undefined): s is BillSummary {
+  return s != null && "publicInterestPoints" in s && Array.isArray((s as BillSummary).publicInterestPoints);
 }
 
 export function BillCardList({ bills }: { bills: BillWithSummary[] }) {
@@ -128,7 +136,7 @@ export function BillCardList({ bills }: { bills: BillWithSummary[] }) {
                     Sponsor data is not yet linked to bills in the database. Check LEGISinfo for sponsor details.
                   </p>
                 </div>
-                {summary && (
+                {isFullBillSummary(summary) && (
                   <div className="grid grid-cols-1 gap-3">
                     <div>
                       <h4 className="font-serif text-xs font-semibold text-[#0F172A] mb-1">

@@ -34,7 +34,8 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ members });
-  } catch {
+  } catch (e) {
+    console.error("[members]: GET failed", e);
     return NextResponse.json({ members: [] }, { status: 200 });
   }
 }

@@ -54,7 +54,8 @@ export async function fetchOntarioMpps(): Promise<OntarioMppRecord[]> {
         };
       })
       .filter((r): r is OntarioMppRecord => r !== null && !!r.name);
-  } catch {
+  } catch (e) {
+    console.error("[ontario-mpps]: fetch failed", e);
     return [];
   }
 }

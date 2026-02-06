@@ -40,7 +40,8 @@ export function CommandKSearchBar() {
             router.push(`/mps/${memberId}`);
             return;
           }
-        } catch {
+        } catch (e) {
+          console.error("[CommandKSearchBar]: postal resolve failed", e);
           // fall through to text search
         } finally {
           setSubmitting(false);

@@ -52,7 +52,7 @@ export async function fetchLegisinfoOverview(): Promise<LegisinfoBill[]> {
     validateStatus: (status) => status >= 200 && status < 400,
   });
 
-  const $ = cheerio.load(xml, { xmlMode: true, decodeEntities: true });
+  const $ = cheerio.load(xml, { xmlMode: true });
   const bills: LegisinfoBill[] = [];
 
   // Common LEGISinfo XML patterns: bill number in <Number> or attribute, status in <Status> or similar
@@ -130,7 +130,8 @@ export async function fetchLegisinfoBillsApi(): Promise<LegisinfoBill[]> {
       }));
     }
     return fetchLegisinfoOverview();
-  } catch {
+  } catch (e) {
+    console.error("[legisinfo]: getKeyVoteBillNumbers failed", e);
     return fetchLegisinfoOverview();
   }
 }

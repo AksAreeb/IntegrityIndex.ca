@@ -27,7 +27,7 @@ type RecentTradeItem = {
   date: string;
 };
 
-const DEBOUNCE_MS = 200;
+const DEBOUNCE_MS = 300;
 const POSTAL_REG = /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/;
 
 function normalizePostal(q: string): string {
@@ -80,7 +80,8 @@ export function GlobalSearch() {
           memberName: postalRes.memberName,
         };
       }
-    } catch {
+    } catch (e) {
+      console.error("[GlobalSearch]: runSearch failed", e);
       memberList = [];
       postalResult = null;
     }

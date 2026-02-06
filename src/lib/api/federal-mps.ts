@@ -45,7 +45,8 @@ export async function fetchFederalMps(): Promise<FederalMpRecord[]> {
         };
       })
       .filter((r): r is FederalMpRecord => r !== null && !!r.name);
-  } catch {
+  } catch (e) {
+    console.error("[federal-mps]: fetch failed", e);
     return [];
   }
 }

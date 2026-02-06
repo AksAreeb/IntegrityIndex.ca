@@ -80,7 +80,12 @@ export interface Asset {
   description: string;
   industryTags: string[];
   estimatedValue?: string;
-  disclosureDate: string;
+  /** ISO date string or Date; null when unavailable */
+  disclosureDate: Date | string | null;
+  /** 2026: source URL for verification (Disclosure.sourceUrl) */
+  sourceUrl?: string | null;
+  /** 2026: amount range e.g. "$1,001–$15,000" (TradeTicker.amountRange) */
+  amountRange?: string | null;
 }
 
 export interface VoteRecord {

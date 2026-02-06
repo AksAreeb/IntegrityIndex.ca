@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getLiveStockPrice } from "@/lib/api/stocks";
 
+export const dynamic = "force-dynamic";
+
 export interface LiveTickerItem {
   memberName: string;
   riding: string;
@@ -14,14 +16,20 @@ export interface LiveTickerItem {
   changePercent?: number;
 }
 
-const CACHE_FINANCIAL = "public, s-maxage=1800, stale-while-revalidate=1800";
+const CACHE_FINANCIAL = "private, no-store, max-age=0";
 
 export async function GET() {
   try {
     const recent = await prisma.tradeTicker.findMany({
       take: 24,
       orderBy: { date: "desc" },
-      include: { member: true },
+      select: {
+        symbol: true,
+        type: true,
+        date: true,
+        memberId: true,
+        member: { select: { name: true, riding: true } },
+      },
     });
 
     const symbols = [...new Set(recent.map((t) => t.symbol))];
@@ -63,7 +71,10 @@ export async function GET() {
       { items },
       { headers: { "Cache-Control": CACHE_FINANCIAL } }
     );
-  } catch {
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const isColumnError = /P2022|column|does not exist|not available/i.test(msg);
+    console.error("[ticker/live]: GET failed", isColumnError ? `P2022/column: ${msg}` : e);
     return NextResponse.json(
       { items: [] },
       { status: 200, headers: { "Cache-Control": CACHE_FINANCIAL } }

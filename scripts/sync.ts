@@ -1,57 +1,111 @@
 /**
- * Sync CLI — Fetches disclosures (CIEC) and bills (LEGISinfo) for test MPs,
- * updates StockPriceCache for tickers in disclosures, creates TradeTicker when disclosures change.
- * Run: npm run sync
- * Prisma 7: uses adapter-pg (same as seed).
+ * Sync CLI — Master Controller for 2026 disclosure sync.
+ * Phase 1: Discover 45th Parliament members (OurCommons) → fill Member table.
+ * Phase 2: CIEC disclosure sync for all federal members → disclosures + ticker.
+ * Run: npm run sync:once (triggered by npm run dev)
  */
 import "dotenv/config";
-import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
+import { readFileSync } from "fs";
+import path from "path";
+import { prisma } from "../src/lib/prisma";
+import { discoverMembers } from "../src/lib/scrapers/memberScraper";
 import { scrapeCIEC } from "../src/lib/scrapers/ciecScraper";
+import { getMemberPhotoUrl } from "../src/lib/scrapers/ciecScraper";
+import { parseFederalMembersFromJson } from "../src/lib/sync";
 import {
   fetchLegisinfoOverview,
   syncBillsToDatabase,
 } from "../src/lib/api/legisinfo";
 import { getLiveStockPrice, extractTickerSymbolsFromText } from "../src/lib/api/stocks";
 
-const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
-if (!connectionString) throw new Error("DIRECT_URL or DATABASE_URL must be set");
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const FEDERAL_CHAMBER = "House of Commons";
+const JURISDICTION_FEDERAL = "FEDERAL";
+const SAFE_ROSTER_PATH = path.join(process.cwd(), "public", "members_safe_roster.json");
 
-/** 10 test MP IDs — use first 10 members from DB, or fallback to IDs 1–10 */
-const TEST_MP_LIMIT = 10;
+/**
+ * Fallback: load members from public/members_safe_roster.json and upsert into Member table
+ * so Phase 2 can continue when OurCommons API is unreachable.
+ */
+async function discoverMembersFromRosterFile(): Promise<number> {
+  try {
+    const buf = readFileSync(SAFE_ROSTER_PATH, "utf-8");
+    const json = JSON.parse(buf) as unknown;
+    const records = parseFederalMembersFromJson(json);
+    if (records.length === 0) return 0;
+    for (const mp of records) {
+      const id = mp.id.trim() || `${mp.name}-${mp.riding}`.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      await prisma.member.upsert({
+        where: { id },
+        create: {
+          id,
+          name: mp.name,
+          riding: mp.riding,
+          party: mp.party,
+          jurisdiction: JURISDICTION_FEDERAL,
+          chamber: FEDERAL_CHAMBER,
+          photoUrl: getMemberPhotoUrl(id),
+        },
+        update: {
+          name: mp.name,
+          riding: mp.riding,
+          party: mp.party,
+          photoUrl: getMemberPhotoUrl(id),
+        },
+      });
+    }
+    console.log(`[Sync] Fallback: upserted ${records.length} federal MP(s) from ${SAFE_ROSTER_PATH}\n`);
+    return records.length;
+  } catch (e) {
+    console.warn("[Sync] Fallback roster read failed:", e instanceof Error ? e.message : e);
+    return 0;
+  }
+}
 
 async function main() {
-  console.log("\n========== SYNC: CIEC + LEGISinfo → Prisma ==========\n");
+  console.log("\n🚀 Starting 2026 Disclosure Sync...\n");
 
-  // ——— Load 10 test MPs from database ———
-  const testMPs = await prisma.member.findMany({
-    take: TEST_MP_LIMIT,
+  // ——— Phase 1: Member Discovery (OurCommons 45th Parliament) ———
+  console.log("========== Phase 1: Member Discovery (OurCommons) ==========\n");
+  let memberCount = 0;
+  try {
+    memberCount = await discoverMembers();
+    console.log(`[Sync] Discovered and upserted ${memberCount} federal MP(s).\n`);
+  } catch (e) {
+    console.warn(
+      "⚠️ Member Discovery API unreachable. Falling back to local roster.\n",
+      e instanceof Error ? e.message : e
+    );
+    memberCount = await discoverMembersFromRosterFile();
+  }
+
+  if (memberCount === 0) {
+    console.warn(
+      "⚠️ Member Discovery API unreachable. Falling back to local roster.\n[Sync] No federal members from API; trying public/members_safe_roster.json..."
+    );
+    memberCount = await discoverMembersFromRosterFile();
+    if (memberCount === 0) {
+      console.log("[Sync] No federal members found. Check OurCommons export or add public/members_safe_roster.json.");
+      return;
+    }
+  }
+
+  // ——— Phase 2: CIEC — loop through Member table we just filled ———
+  const federalMembers = await prisma.member.findMany({
+    where: { jurisdiction: "FEDERAL" },
     orderBy: { id: "asc" },
     select: { id: true, name: true, riding: true },
   });
 
-  if (testMPs.length === 0) {
-    console.log("[Sync] No members in database. Run prisma db seed first.");
-    return;
-  }
-
-  console.log(`[Sync] Loaded ${testMPs.length} test MPs from database:\n`);
-  testMPs.forEach((mp, i) => {
-    console.log(`  ${i + 1}. ${mp.name} (${mp.riding}) — id: ${mp.id}`);
-  });
-  console.log("");
-
-  // ——— Step 1: CIEC — fetch disclosures for each test MP and save ———
-  console.log("---------- Step 1: CIEC Scraper (disclosures) ----------\n");
+  console.log("========== Phase 2: CIEC Disclosure Sync ==========\n");
+  console.log(`[Sync] Running CIEC scraper for ${federalMembers.length} federal member(s).\n`);
 
   const tickerSymbolsFromSync = new Set<string>();
 
-  for (const mp of testMPs) {
-    console.log(`[CIEC] Fetching disclosures for: ${mp.name} (${mp.riding}) [${mp.id}]...`);
+  const delayMs = 150;
+  for (let idx = 0; idx < federalMembers.length; idx++) {
+    const mp = federalMembers[idx];
+    if (idx > 0) await new Promise((r) => setTimeout(r, delayMs));
+    console.log(`[CIEC] [${idx + 1}/${federalMembers.length}] ${mp.name} (${mp.riding}) [${mp.id}]...`);
 
     try {
       const rows = await scrapeCIEC(mp.name);
@@ -159,6 +213,7 @@ async function main() {
     update: { lastSuccessfulSyncAt: new Date() },
   });
   console.log("[Sync] Last successful sync time updated in database.");
+  console.log("\n✅ Sync Complete.");
   console.log("\n========== SYNC finished ==========\n");
 }
 

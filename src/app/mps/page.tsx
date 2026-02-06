@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { SyncButton } from "@/components/SyncButton";
 import { MembersDataTable } from "./MembersDataTable";
 import { prisma } from "@/lib/db";
 
@@ -37,7 +38,7 @@ export default async function MpsIndexPage({ searchParams }: PageProps) {
             No representatives in the database yet. Run a sync to populate the roster from the official House of Commons and Ontario Legislative Assembly feeds.
           </p>
           <p className="font-sans text-sm text-[#0F172A] mb-4">
-            <a href="/api/sync" className="font-medium underline hover:no-underline">Sync roster now</a> (fetches from {FEDERAL_EXPORT_URL} and Ontario MPP export). Then refresh this page.
+            <SyncButton /> (fetches from {FEDERAL_EXPORT_URL} and Ontario MPP export). Then refresh this page.
           </p>
           <Link href="/" className="font-sans text-sm font-medium text-[#0F172A] hover:underline">← Back to home</Link>
         </div>

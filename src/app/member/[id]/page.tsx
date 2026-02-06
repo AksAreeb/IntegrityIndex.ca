@@ -45,9 +45,21 @@ export default async function MemberProfileMasterPage({ params }: PageProps) {
   const { id } = await params;
   const member = await prisma.member.findUnique({
     where: { id },
-    include: {
-      disclosures: { orderBy: { id: "asc" } },
-      tradeTickers: true,
+    select: {
+      id: true,
+      name: true,
+      riding: true,
+      party: true,
+      jurisdiction: true,
+      photoUrl: true,
+      chamber: true,
+      disclosures: {
+        orderBy: { id: "asc" as const },
+        select: { id: true, category: true, description: true },
+      },
+      tradeTickers: {
+        select: { id: true, symbol: true, type: true, date: true },
+      },
     },
   });
 

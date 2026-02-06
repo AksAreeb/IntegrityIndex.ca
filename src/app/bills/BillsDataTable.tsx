@@ -103,19 +103,20 @@ export function BillsDataTable({ bills }: { bills: BillRow[] }) {
                                 Members with reported stock in this bill&apos;s sector
                               </h4>
                               <ul className="list-disc list-inside text-sm text-[#64748B]">
-                                {(bill.stakeholderNames ?? bill.stakeholderMemberIds).map((nameOrId, i) => (
-                                  <li key={i}>
-                                    {bill.stakeholderNames ? (
-                                      <Link href={`/mps/${encodeURIComponent(bill.stakeholderMemberIds[i] ?? "")}`} className="text-[#0F172A] hover:underline">
-                                        {nameOrId}
+                                {((bill.stakeholderNames?.length ?? 0) > 0 ? bill.stakeholderNames! : bill.stakeholderMemberIds ?? []).map((nameOrId, i) => {
+                                  const memberId = bill.stakeholderMemberIds?.[i] ?? null;
+                                  const label = bill.stakeholderNames?.[i] ?? (typeof nameOrId === "string" ? nameOrId : String(nameOrId));
+                                  if (!memberId || typeof memberId !== "string" || memberId.length === 0) {
+                                    return <li key={i}>{label}</li>;
+                                  }
+                                  return (
+                                    <li key={i}>
+                                      <Link href={`/mps/${encodeURIComponent(memberId)}`} className="text-[#0F172A] hover:underline">
+                                        {label}
                                       </Link>
-                                    ) : (
-                                      <Link href={`/mps/${encodeURIComponent(nameOrId)}`} className="text-[#0F172A] hover:underline">
-                                        View profile
-                                      </Link>
-                                    )}
-                                  </li>
-                                ))}
+                                    </li>
+                                  );
+                                })}
                               </ul>
                             </div>
                           )}

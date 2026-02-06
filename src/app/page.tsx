@@ -54,7 +54,8 @@ export default async function Home() {
       });
       recentProfiles = orderedIds.map((id) => members.find((m) => m.id === id)).filter(Boolean) as { id: string; name: string; riding: string }[];
     }
-  } catch {
+  } catch (e) {
+    console.error("[page]: live stats fetch failed", e);
     // leave defaults
   }
   return (

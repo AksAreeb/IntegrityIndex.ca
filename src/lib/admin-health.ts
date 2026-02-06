@@ -26,7 +26,8 @@ async function ping(
       },
     });
     return res.ok;
-  } catch {
+  } catch (e) {
+    console.error("[admin-health]: check failed", e);
     return false;
   }
 }

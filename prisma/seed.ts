@@ -1,235 +1,207 @@
-import "dotenv/config";
-
-const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
-if (!connectionString) throw new Error("DIRECT_URL or DATABASE_URL must be set in .env");
-
 /**
- * Data Prime — Seed top 10 Federal MPs, CIEC disclosures, stock hydration, 5 bills.
- * Run: npx prisma db seed
- * Prisma 7: Rust-free client via pg driver + PrismaPg adapter.
+ * Idempotent seed: Federal MPs (OpenParliament) + Ontario MPPs (OLA).
+ * Uses officialId (FED-*, ON-*) for upserts. Compatible with npx tsx prisma/seed.ts.
  */
-const { Pool } = require("pg");
-const { PrismaPg } = require("@prisma/adapter-pg");
-const { PrismaClient } = require("@prisma/client");
+import "dotenv/config";
+import axios from "axios";
+import { prisma } from '../src/lib/prisma';
 
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const FEDERAL_API = "https://api.openparliament.ca/politicians/?format=json";
+const ONTARIO_API = "https://represent.opennorth.ca/representatives/ontario-legislature/?format=json&limit=150";
+const FETCH_TIMEOUT_MS = 20000;
+const USER_AGENT = "IntegrityIndex.ca/1.0 (https://integrityindex.ca)";
 
-const axios = require("axios");
-const cheerio = require("cheerio");
-const { scrapeCIEC, getMemberPhotoUrl } = require("../src/lib/scrapers/ciecScraper");
-const { getLiveStockPrice, extractTickerSymbolsFromText } = require("../src/lib/api/stocks");
-const { fetchOntarioMpps } = require("../src/lib/api/ontario-mpps");
+interface FederalPolitician {
+  name: string;
+  url?: string;
+  current_party?: { short_name?: { en?: string } };
+  current_riding?: { name?: { en?: string }; province?: string };
+}
 
-const LEGISINFO_BILLS_API = "https://www.parl.ca/legisinfo/en/api/v1/bills?parliaments=45";
-const FEDERAL_CHAMBER = "House of Commons";
-const PROVINCIAL_CHAMBER = "Legislative Assembly";
+interface OntarioMemberRow {
+  id?: string | number;
+  name?: string;
+  riding?: string;
+  party?: string;
+  [key: string]: unknown;
+}
 
-/** Top 10 Federal MPs — real names; CIEC resolved by name from Public Registry */
-const TOP_10_MPs = [
-  { id: "100001", name: "Pierre Poilievre", riding: "Carleton", party: "Conservative" },
-  { id: "100002", name: "Justin Trudeau", riding: "Papineau", party: "Liberal" },
-  { id: "100003", name: "Jagmeet Singh", riding: "Burnaby South", party: "NDP" },
-  { id: "100004", name: "Chrystia Freeland", riding: "University—Rosedale", party: "Liberal" },
-  { id: "100005", name: "Yves-François Blanchet", riding: "Beloeil—Chambly", party: "Bloc Québécois" },
-  { id: "100006", name: "Elizabeth May", riding: "Saanich—Gulf Islands", party: "Green" },
-  { id: "100007", name: "Mark Holland", riding: "Ajax", party: "Liberal" },
-  { id: "100008", name: "Melissa Lantsman", riding: "Thornhill", party: "Conservative" },
-  { id: "100009", name: "Peter Julian", riding: "New Westminster—Burnaby", party: "NDP" },
-  { id: "100010", name: "Alain Therrien", riding: "La Prairie", party: "Bloc Québécois" },
-];
+function slugFromUrl(url: string): string {
+  const path = url.replace(/\/$/, "").split("/").pop() ?? "";
+  return path || "unknown";
+}
 
-const TICKER_SYMBOLS = ["TD", "SHOP", "RY", "ENB", "CNR", "SU", "BNS", "CP"];
+function fetchFederalMps(): Promise<FederalPolitician[]> {
+  return new Promise((resolve) => {
+    const all: FederalPolitician[] = [];
+    let offset = 0;
+    const limit = 100;
 
-async function fetchBillsFromLegisinfo(): Promise<{ number: string; status: string; title?: string }[]> {
-  try {
-    const { data } = await axios.get(LEGISINFO_BILLS_API, {
-      timeout: 15000,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; IntegrityIndex/1.0)",
-        Accept: "application/json",
-      },
-      validateStatus: (s: number) => s >= 200 && s < 400,
-    });
-    const items = data?.Items ?? data?.items ?? data?.bills ?? (Array.isArray(data) ? data : []);
-    const bills: { number: string; status: string; title?: string }[] = [];
-    for (const item of items) {
-      const number = String(item.Number ?? item.number ?? item.BillNumber ?? "").trim();
-      const status = String(item.Status ?? item.status ?? item.CurrentStatus ?? "").trim();
-      const title = [item.ShortTitle, item.shortTitle, item.Title, item.title].find(Boolean);
-      const titleStr = title != null ? String(title).trim() : undefined;
-      if (number) bills.push({ number, status, title: titleStr || undefined });
-    }
-    if (bills.length === 0) {
-      const fallback = await axios.get("https://www.parl.ca/legisinfo/en/overview/xml", {
-        timeout: 10000,
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; IntegrityIndex/1.0)", Accept: "application/xml, text/xml" },
-        validateStatus: (s: number) => s >= 200 && s < 400,
-      }).then((r: { data: string }) => r.data).catch(() => null);
-      if (fallback && typeof fallback === "string" && fallback.includes("C-")) {
-        const $ = cheerio.load(fallback, { xmlMode: true, decodeEntities: true });
-        $("Bill, BillVersion, Item").each((_: number, el: unknown) => {
-          const $el = $(el);
-          const num = $el.find("Number").first().text().trim() || ($el.attr("number") as string) || $el.find("BillNumber").first().text().trim() || "";
-          const st = $el.find("Status").first().text().trim() || ($el.attr("status") as string) || "";
-          const tit = $el.find("ShortTitle").first().text().trim() || $el.find("Title").first().text().trim() || undefined;
-          if (num) bills.push({ number: num.trim(), status: st.trim(), title: tit });
+    const fetchPage = async () => {
+      try {
+        const { data } = await axios.get<{
+          objects?: FederalPolitician[];
+          pagination?: { next_url?: string | null };
+        }>(FEDERAL_API, {
+          timeout: FETCH_TIMEOUT_MS,
+          params: { limit, offset },
+          headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+          validateStatus: (s) => s >= 200 && s < 400,
         });
+        const objects = data?.objects ?? [];
+        all.push(...objects);
+        if (data?.pagination?.next_url && objects.length === limit) {
+          offset += limit;
+          await fetchPage();
+        } else {
+          resolve(all);
+        }
+      } catch (e) {
+        console.warn("[Seed] Federal fetch failed:", e instanceof Error ? e.message : e);
+        resolve(all);
       }
+    };
+
+    fetchPage();
+  });
+}
+
+async function fetchOntarioMpps(): Promise<{ id: string; name: string; riding: string; party: string; photoUrl: string }[]> {
+  const ONTARIO_API = "https://represent.opennorth.ca/representatives/ontario-legislature/?limit=150";
+
+  try {
+    console.log('[Seed] Fetching Ontario MPPs from Represent API (Open North)...');
+
+    const { data } = await axios.get(ONTARIO_API, {
+      timeout: FETCH_TIMEOUT_MS,
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+    });
+
+    // Represent API standard: results are in the 'objects' array
+    const raw = data?.objects || [];
+
+    const result = [];
+    const seen = new Set<string>();
+
+    for (const m of raw) {
+      const name = String(m.name || "").trim();
+      const riding = String(m.district_name || "").trim();
+      const party = String(m.party_name || "").trim();
+      const photoUrl = m.photo_url || null;
+
+      if (!name) continue;
+
+      // Represent doesn't provide the OLA 'member_id', so we generate a 
+      // stable slug based on the name for the officialId.
+      const slug = `ON-${name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}`;
+
+      if (seen.has(slug)) continue;
+      seen.add(slug);
+
+      result.push({
+        id: slug, // Keep id and officialId consistent
+        name,
+        riding,
+        party: party || "Independent",
+        photoUrl
+      });
     }
-    return bills;
-  } catch {
+
+    console.log(`[Seed] Successfully processed ${result.length} Ontario MPPs.`);
+    return result;
+  } catch (e) {
+    console.error("[Seed] Ontario fetch failed:", e instanceof Error ? e.message : e);
     return [];
   }
 }
-
 async function main() {
-  console.log("\n========== Data Prime: Seed + CIEC + Stock + Bills ==========\n");
+  console.log("\n========== Seed: Federal MPs + Ontario MPPs (idempotent) ==========\n");
 
-  await prisma.stockPriceCache.deleteMany({});
-  await prisma.tradeTicker.deleteMany({});
-  await prisma.disclosure.deleteMany({});
-  await prisma.bill.deleteMany({});
-  await prisma.member.deleteMany({});
-
-  // ——— 1. Seed 10 Federal MPs ———
-  console.log("[Seed] 1. Seeding top 10 Federal MPs...\n");
-  for (const mp of TOP_10_MPs) {
-    await prisma.member.create({
-      data: {
-        id: mp.id,
-        name: mp.name,
-        riding: mp.riding,
-        party: mp.party,
-        jurisdiction: "FEDERAL",
-      },
-    });
-    console.log(`  Created: ${mp.name} (${mp.riding}) — id: ${mp.id}`);
+  let federalList: FederalPolitician[] = [];
+  try {
+    console.log("[Seed] Fetching Federal MPs from OpenParliament...");
+    federalList = await fetchFederalMps();
+    console.log(`[Seed]   → ${federalList.length} Federal politician(s) fetched.\n`);
+  } catch (e) {
+    console.warn("[Seed] Federal API error:", e instanceof Error ? e.message : e);
   }
-  console.log("");
 
-  // ——— 2. CIEC: search-based disclosure summaries by member name ———
-  console.log("[Seed] 2. CIEC — fetching disclosure summaries (search by name)...\n");
-  const allDisclosureText = [];
-  for (const mp of TOP_10_MPs) {
+  let ontarioList: { id: string; name: string; riding: string; party: string }[] = [];
+  try {
+    console.log("[Seed] Fetching Ontario MPPs from OLA...");
+    ontarioList = await fetchOntarioMpps();
+    console.log(`[Seed]   → ${ontarioList.length} Ontario MPP(s) fetched.\n`);
+  } catch (e) {
+    console.warn("[Seed] Ontario API error:", e instanceof Error ? e.message : e);
+  }
+
+  let fedUpserted = 0;
+  for (const p of federalList) {
+    const name = p.name?.trim() || "Unknown";
+    const riding = p.current_riding?.name?.en?.trim() || p.current_riding?.name || "Unknown";
+    const party = p.current_party?.short_name?.en?.trim() || "Independent";
+    const urlSlug = p.url ? slugFromUrl(p.url) : null;
+    const officialId = urlSlug ? `FED-${urlSlug}` : `FED-${name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}-${fedUpserted}`;
     try {
-      const rows = await scrapeCIEC(mp.name);
-      console.log(`  ${mp.name}: ${rows.length} disclosure row(s) from CIEC`);
-      for (const row of rows.slice(0, 5)) {
-        const category = (row.natureOfInterest?.slice(0, 50) || "Other").slice(0, 50);
-        const description = (row.assetName ?? "").slice(0, 500);
-        allDisclosureText.push(description + " " + category);
-        await prisma.disclosure.create({
-          data: { memberId: mp.id, category, description },
-        });
-      }
+      await prisma.member.upsert({
+        where: { officialId },
+        create: {
+          id: officialId,
+          officialId,
+          name,
+          riding: String(riding).slice(0, 500),
+          party: String(party).slice(0, 200),
+          jurisdiction: "FEDERAL",
+          chamber: "House of Commons",
+        },
+        update: {
+          name,
+          riding: String(riding).slice(0, 500),
+          party: String(party).slice(0, 200),
+        },
+      });
+      fedUpserted++;
     } catch (e) {
-      console.warn(`  ${mp.name}: skip — ${e instanceof Error ? e.message : "scrape failed"}`);
+      console.warn(`[Seed]   Skip Federal ${name}:`, e instanceof Error ? e.message : e);
     }
   }
-  console.log("");
+  console.log(`[Seed] Federal MPs upserted: ${fedUpserted}.\n`);
 
-  // ——— 3. Trade tickers: from disclosure symbols (auto when disclosure mentions ticker) + seed list ———
-  console.log("[Seed] 3. Trade tickers (from disclosures + seed list)...\n");
-  const disclosuresForTicker = await prisma.disclosure.findMany({
-    where: { memberId: { in: TOP_10_MPs.map((m) => m.id) } },
-    select: { memberId: true, description: true, category: true },
-  });
-  const memberToSyms: Record<string, Set<string>> = {};
-  for (const mp of TOP_10_MPs) {
-    memberToSyms[mp.id] = new Set(TICKER_SYMBOLS);
-  }
-  for (const d of disclosuresForTicker) {
-    for (const sym of extractTickerSymbolsFromText(d.description + " " + d.category, true)) {
-      if (memberToSyms[d.memberId]) memberToSyms[d.memberId].add(sym);
-    }
-  }
-  const now = new Date();
-  for (const mp of TOP_10_MPs) {
-    const syms = memberToSyms[mp.id] ?? new Set(TICKER_SYMBOLS);
-    for (const symbol of syms) {
-      const existing = await prisma.tradeTicker.findFirst({
-        where: { memberId: mp.id, symbol },
-      });
-      if (!existing) {
-        await prisma.tradeTicker.create({
-          data: { memberId: mp.id, symbol, type: "BUY", date: now },
-        });
-      }
-    }
-    const sym1 = TICKER_SYMBOLS[TOP_10_MPs.indexOf(mp) % TICKER_SYMBOLS.length];
-    const sym2 = TICKER_SYMBOLS[(TOP_10_MPs.indexOf(mp) + 3) % TICKER_SYMBOLS.length];
-    for (const [sym, type] of [[sym1, "BUY"], [sym2, "SELL"]] as const) {
-      const ex = await prisma.tradeTicker.findFirst({
-        where: { memberId: mp.id, symbol: sym },
-      });
-      if (!ex) {
-        await prisma.tradeTicker.create({
-          data: { memberId: mp.id, symbol: sym, type, date: new Date(2024, 5, 1) },
-        });
-      }
-    }
-    console.log(`  ${mp.name}: TradeTicker ${sym1} (BUY), ${sym2} (SELL) + ${syms.size} from disclosures`);
-  }
-  // ——— 3b. StockPriceCache: every ticker from disclosure summaries + seed list ———
-  const symbolsFromDisclosures = new Set(TICKER_SYMBOLS);
-  for (const text of allDisclosureText) {
-    for (const sym of extractTickerSymbolsFromText(text, true)) {
-      symbolsFromDisclosures.add(sym);
-    }
-  }
-  const symbols = [...symbolsFromDisclosures];
-  for (const symbol of symbols) {
+  let onUpserted = 0;
+  for (const m of ontarioList) {
+    const officialId = `ON-${m.id}`;
     try {
-      const q = await getLiveStockPrice(symbol);
-      if (q) {
-        await prisma.stockPriceCache.upsert({
-          where: { symbol },
-          create: {
-            symbol,
-            price: q.currentPrice,
-            dailyChange: q.dailyChange,
-          },
-          update: {
-            price: q.currentPrice,
-            dailyChange: q.dailyChange,
-          },
-        });
-        console.log(`  Stock ${symbol}: $${q.currentPrice.toFixed(2)} (${q.dailyChange >= 0 ? "+" : ""}${q.dailyChange.toFixed(2)}) → saved`);
-      }
+      await prisma.member.upsert({
+        where: { officialId },
+        create: {
+          id: officialId,
+          officialId,
+          name: m.name,
+          riding: m.riding.slice(0, 500),
+          party: m.party.slice(0, 200),
+          jurisdiction: "PROVINCIAL",
+          chamber: "Legislative Assembly",
+        },
+        update: {
+          name: m.name,
+          riding: m.riding.slice(0, 500),
+          party: m.party.slice(0, 200),
+        },
+      });
+      onUpserted++;
     } catch (e) {
-      console.warn(`  Stock ${symbol}: skip — ${e instanceof Error ? e.message : "fetch failed"}`);
+      console.warn(`[Seed]   Skip Ontario ${m.name}:`, e instanceof Error ? e.message : e);
     }
   }
-  console.log("");
+  console.log(`[Seed] Ontario MPPs upserted: ${onUpserted}.\n`);
 
-  // ——— 4. LEGISinfo: 5 most recent government bills ———
-  console.log("[Seed] 4. LEGISinfo — fetching 5 most recent government bills...\n");
-  const bills = await fetchBillsFromLegisinfo();
-  const five = bills.slice(0, 5);
-  for (const b of five) {
-    await prisma.bill.upsert({
-      where: { number: b.number },
-      create: { number: b.number, status: b.status, title: b.title ?? null, keyVote: false },
-      update: { status: b.status, title: b.title ?? null },
-    });
-    console.log(`  Bill: ${b.number} | ${b.status}${b.title ? ` | ${b.title.slice(0, 40)}...` : ""}`);
-  }
-  console.log("");
-
-  await prisma.appStatus.upsert({
-    where: { id: 1 },
-    create: { id: 1, lastSuccessfulSyncAt: new Date() },
-    update: { lastSuccessfulSyncAt: new Date() },
-  });
-
-  console.log("[Seed] Data Prime finished. 10 MPs, disclosures, trades, stock cache, 5 bills.\n");
+  const total = await prisma.member.count();
+  console.log(`[Seed] Done. Total members in DB: ${total}.\n`);
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error("[Seed] Fatal error:", e);
     process.exit(1);
   })
   .finally(async () => {

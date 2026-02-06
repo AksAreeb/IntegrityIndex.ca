@@ -64,7 +64,8 @@ export async function getLiveStockPrice(
     if (currentPrice <= 0) return null;
 
     return { currentPrice, dailyChange };
-  } catch {
+  } catch (e) {
+    console.error("[stocks]: getLiveStockPrice failed", e);
     return null;
   }
 }

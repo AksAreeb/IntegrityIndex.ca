@@ -12,6 +12,8 @@ export interface LiveTickerItem {
   memberId: string;
   date: string;
   dateIso: string;
+  /** Disclosure date for ticker label (trade date; use for "Disclosed: [Date]"). */
+  disclosureDate: string;
   /** Current market price from Finnhub */
   currentPrice?: number;
   dailyChange?: number;
@@ -19,18 +21,41 @@ export interface LiveTickerItem {
   party?: string;
 }
 
-const CACHE_FINANCIAL = "public, s-maxage=1800, stale-while-revalidate=1800"; // 30 min
+export const dynamic = "force-dynamic";
+
+const CACHE_FINANCIAL = "private, no-store, max-age=0";
 
 /**
- * GET /api/trades — Live trades for ticker. Returns [] when no trades (no error).
- * Cache: 30 min for financial APIs.
+ * GET /api/trades — Live trades for ticker. Bridge 44th/45th Parliament: no year filter.
+ * Top 24 most recent trades regardless of year so 2025/2024 data fills the gap when 2026 is sparse.
+ * orderBy: date desc so 2026 data stays at the front as it trickles in.
  */
 export async function GET() {
   try {
     const recent = await prisma.tradeTicker.findMany({
+      where: {
+        symbol: { not: "" },
+        memberId: { not: "" },
+      },
       take: 24,
       orderBy: { date: "desc" },
-      include: { member: true },
+      select: {
+        id: true,
+        symbol: true,
+        type: true,
+        date: true,
+        memberId: true,
+        member: {
+          select: {
+            id: true,
+            name: true,
+            photoUrl: true,
+            jurisdiction: true,
+            riding: true,
+            party: true,
+          },
+        },
+      },
     });
 
     if (recent.length === 0) {
@@ -62,6 +87,8 @@ export async function GET() {
 
     const items: LiveTickerItem[] = recent.map((t) => {
       const p = prices[t.symbol];
+      const dateIso = t.date.toISOString();
+      const dateYmd = dateIso.slice(0, 10);
       return {
         memberName: t.member.name,
         memberPhotoUrl: t.member.photoUrl ?? null,
@@ -70,8 +97,9 @@ export async function GET() {
         type: t.type as "BUY" | "SELL",
         symbol: t.symbol,
         memberId: t.memberId,
-        date: t.date.toISOString().slice(0, 10),
-        dateIso: t.date.toISOString(),
+        date: dateYmd,
+        dateIso,
+        disclosureDate: dateYmd,
         currentPrice: p?.currentPrice,
         dailyChange: p?.dailyChange,
         changePercent: p?.changePercent,
@@ -83,7 +111,10 @@ export async function GET() {
       { items },
       { headers: { "Cache-Control": CACHE_FINANCIAL } }
     );
-  } catch {
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const isColumnError = /P2022|column|does not exist|not available/i.test(msg);
+    console.error("[trades]: GET failed", isColumnError ? `P2022/column: ${msg}` : e);
     return NextResponse.json(
       { items: [] },
       { status: 200, headers: { "Cache-Control": CACHE_FINANCIAL } }

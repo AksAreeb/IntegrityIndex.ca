@@ -33,7 +33,8 @@ export async function GET() {
         },
       ],
     });
-  } catch {
+  } catch (e) {
+    console.error("[geojson/ontario]: GET failed", e);
     return NextResponse.json(
       { error: "Failed to load map data" },
       { status: 500 }

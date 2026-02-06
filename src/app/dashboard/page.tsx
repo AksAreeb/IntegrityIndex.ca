@@ -9,7 +9,12 @@ function integrityScore(tradeCount: number): number {
 
 export default async function DashboardPage() {
   const membersWithTrades = await prisma.member.findMany({
-    include: { _count: { select: { tradeTickers: true } } },
+    select: {
+      id: true,
+      name: true,
+      riding: true,
+      _count: { select: { tradeTickers: true } },
+    },
   });
   const withScore = membersWithTrades.map((m) => ({
     id: m.id,

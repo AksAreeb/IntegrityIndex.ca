@@ -9,7 +9,11 @@ const GovernanceMap = dynamic(
   () => import("./GovernanceMap").then((mod) => mod.GovernanceMap),
   {
     ssr: false,
-    loading: () => <MapSkeleton />,
+    loading: () => (
+      <div className="w-full h-full min-h-[280px] flex items-center justify-center">
+        <MapSkeleton />
+      </div>
+    ),
   }
 );
 

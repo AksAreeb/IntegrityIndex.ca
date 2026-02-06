@@ -2,6 +2,18 @@
 
 import type { Asset } from "@/types";
 
+const DATE_FMT = new Intl.DateTimeFormat("en-CA", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+function formatDisclosureDate(d: Date | string | null): string {
+  if (d == null) return "—";
+  const date = d instanceof Date ? d : new Date(d);
+  return Number.isNaN(date.getTime()) ? "—" : DATE_FMT.format(date);
+}
+
 interface Props {
   assets: Asset[];
 }
@@ -56,7 +68,7 @@ export function FinancialLedger({ assets }: Props) {
                 </span>
               </td>
               <td className="px-6 py-4 text-sm text-[#64748B]">
-                {asset.disclosureDate}
+                {formatDisclosureDate(asset.disclosureDate)}
               </td>
             </tr>
           ))}

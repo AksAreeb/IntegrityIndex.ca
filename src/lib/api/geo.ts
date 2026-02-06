@@ -79,7 +79,8 @@ export async function getRidingByPostalCode(
       city: data.city,
       federalExternalId: federal?.external_id,
     };
-  } catch {
+  } catch (e) {
+    console.error("[geo]: getRidingByPostalCode failed", e);
     return null;
   }
 }

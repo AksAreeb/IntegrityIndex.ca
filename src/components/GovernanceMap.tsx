@@ -3,25 +3,82 @@
 import React, { memo, useCallback, useEffect, useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import * as topojson from "topojson-client";
 import { MapSkeleton } from "./MapSkeleton";
 import { getRidingInfo } from "@/lib/riding-data";
 import type { OversightMode } from "@/lib/riding-data";
+import { normalizeGeoJson, normalizeRidingKey } from "@/lib/geo-utils";
 
-const FEDERAL_URL =
-  "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/canada-electoral-districts.geojson";
-const ONTARIO_URL = "/api/geojson/ontario";
+/** 343-seat 2023 Representation Order: TopoJSON prioritized; join choropleth by FED_ID. */
+const TOPOJSON_FEDERAL_PATH = "/data/canada_ridings_2023.topojson";
+/** Same topology if served as .json (e.g. canada_ridings_2023.json). */
+const TOPOJSON_FEDERAL_PATH_ALT = "/data/canada_ridings_2023.json";
+/** Fallback GeoJSON (e.g. placeholder). */
+const GEOJSON_FEDERAL_PATH = "/data/canada_ridings.json";
+const GEOJSON_ONTARIO = "/api/geojson/ontario";
+
+/** Choropleth: more Material Changes = darker. Scale from no activity (light) to max (intense). */
+const CHOROPLETH_BASE = "#1E3A8A"; // slate-900 / blue-900
+const CHOROPLETH_LIGHT = "#E2E8F0"; // no activity
+const DEFAULT_FILL = "#E2E8F0";
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}
+function rgbToHex(r: number, g: number, b: number): string {
+  return "#" + [r, g, b].map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
+}
+function interpolateColor(hexFrom: string, hexTo: string, t: number): string {
+  const a = hexToRgb(hexFrom);
+  const b = hexToRgb(hexTo);
+  return rgbToHex(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t);
+}
+
+/** Party colors for tooltip/labels (choropleth is by activity). */
+const PARTY_FILL: Record<string, string> = {
+  Liberal: "#B91C1C",
+  Conservative: "#1E3A8A",
+  NDP: "#EA580C",
+  "Bloc Québécois": "#0284C7",
+  Bloc: "#0284C7",
+  Green: "#15803D",
+};
 
 interface GovernanceMapProps {
   mode: OversightMode;
 }
 
+type MemberInfo = {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  party: string;
+};
+
+type EnrichedProperties = {
+  ridingId?: string;
+  ridingName?: string;
+  ENNAME?: string;
+  name?: string;
+  /** Federal electoral district ID for data-join with riding-activity (FED_ID or NUM_CF). */
+  FED_ID?: string;
+  _member?: MemberInfo;
+  /** Joined from /api/riding-activity by FED_ID for choropleth. */
+  _materialChangeCount?: number;
+};
+
 type GeoFeature = {
-  properties?: { ridingId?: string; ridingName?: string; ENNAME?: string };
+  properties?: EnrichedProperties;
+  geometry?: unknown;
   rsmKey?: string;
+  type?: string;
 };
 
 const MemoizedGeography = memo(function MemoizedGeography({
   geo,
+  fill,
   isHovered,
   onMouseEnter,
   onMouseMove,
@@ -29,6 +86,7 @@ const MemoizedGeography = memo(function MemoizedGeography({
   onClick,
 }: {
   geo: GeoFeature;
+  fill: string;
   isHovered: boolean;
   onMouseEnter: (e: React.MouseEvent<SVGPathElement>, g: GeoFeature) => void;
   onMouseMove: (e: React.MouseEvent<SVGPathElement>) => void;
@@ -38,8 +96,8 @@ const MemoizedGeography = memo(function MemoizedGeography({
   return (
     <Geography
       geography={geo}
-      fill={isHovered ? "#E2E8F0" : "#F1F5F9"}
-      stroke={isHovered ? "#0f172a" : "#cbd5e1"}
+      fill={fill}
+      stroke={isHovered ? "#0f172a" : "#94a3b8"}
       strokeWidth={isHovered ? 2 : 0.5}
       className="transition-[fill,stroke] duration-150 ease-out"
       style={{
@@ -63,18 +121,17 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
     x: number;
     y: number;
     ridingName: string;
-    representative: string;
-    integrityRating: number;
+    memberName: string;
+    memberPhotoUrl: string | null;
+    party: string;
     ridingId: string;
+    materialChangeCount?: number;
   } | null>(null);
+  /** Max trade count across ridings for choropleth scale. */
+  const [activityMax, setActivityMax] = useState(0);
   const [geoData, setGeoData] = useState<{
     type: string;
-    features: Array<{
-      type: string;
-      properties?: Record<string, unknown>;
-      geometry?: unknown;
-      rsmKey?: string;
-    }>;
+    features: GeoFeature[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,45 +144,203 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
   const isFederal = mode === "federal";
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || typeof window === "undefined") return;
     setLoading(true);
     setError(null);
-    const url = isFederal ? FEDERAL_URL_PRIMARY : ONTARIO_URL;
-    fetch(url)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
-        if (data.error) throw new Error(data.error);
-        const normalized = isFederal ? normalizeGeoJson(data) : data;
-        if (!normalized.features?.length && isFederal) {
-          return fetch(FEDERAL_URL_FALLBACK)
-            .then((r2) => (r2.ok ? r2.json() : Promise.reject(new Error("Fallback failed"))))
-            .then((fallback) => normalizeGeoJson(fallback));
+
+    const load = async () => {
+      try {
+        if (isFederal) {
+          const [topoRes, topoAltRes, geoFallbackRes, membersRes, activityRes] = await Promise.all([
+            fetch(TOPOJSON_FEDERAL_PATH),
+            fetch(TOPOJSON_FEDERAL_PATH_ALT),
+            fetch(GEOJSON_FEDERAL_PATH),
+            fetch("/api/members"),
+            fetch("/api/riding-activity"),
+          ]);
+
+          let geoJson: { type: string; features: GeoFeature[] };
+          const topoBody = topoRes.ok ? await topoRes.json() : topoAltRes.ok ? await topoAltRes.json() : null;
+          const isTopology = topoBody?.type === "Topology" && topoBody?.objects;
+
+          if (isTopology) {
+            const topo = topoBody as { type: string; objects: Record<string, unknown> };
+            const objKey = Object.keys(topo.objects).find((k) => k !== "default") ?? Object.keys(topo.objects)[0];
+            if (objKey) {
+              geoJson = topojson.feature(topo as Parameters<typeof topojson.feature>[0], topo.objects[objKey] as Parameters<typeof topojson.feature>[1]) as { type: string; features: GeoFeature[] };
+            } else {
+              geoJson = { type: "FeatureCollection", features: [] };
+            }
+          } else if (geoFallbackRes.ok) {
+            geoJson = await geoFallbackRes.json();
+          } else {
+            console.error("[GovernanceMap] GeoJSON/TopoJSON fetch failed:", topoRes.status, geoFallbackRes.status);
+            setError(`Failed to load map (${geoFallbackRes.status})`);
+            setLoading(false);
+            return;
+          }
+
+          const membersData = await membersRes.json().catch(() => ({ members: [] }));
+          const members: Array<{ id: string; name: string; riding: string; party: string; photoUrl: string | null; jurisdiction: string }> =
+            membersData.members ?? [];
+          const federalMembers = members.filter(
+            (m) => (m.jurisdiction || "").toUpperCase() === "FEDERAL"
+          );
+          const membersByRiding: Record<string, (typeof federalMembers)[number]> = {};
+          for (const m of federalMembers) {
+            const key = normalizeRidingKey(m.riding);
+            if (key) membersByRiding[key] = m;
+          }
+
+          const activityData = await activityRes.json().catch(() => ({ items: [] }));
+          const activityItems: Array<{ ridingKey: string; ridingName: string; party: string | null; tradeCount: number }> = activityData.items ?? [];
+
+          const features = Array.isArray(geoJson.features) ? geoJson.features : [];
+
+          /** FED_ID from TopoJSON/GeoJSON (FED_ID, NUM_CF, or FED_NUM) for data-join. */
+          const getFedId = (props: Record<string, unknown>): string => {
+            const id = props.FED_ID ?? props.NUM_CF ?? props.FED_NUM;
+            return id != null ? String(id) : "";
+          };
+
+          /** Build ridingKey -> FED_ID from geo so we can key activity by FED_ID. */
+          const ridingKeyToFedId: Record<string, string> = {};
+          for (const f of features) {
+            const props = f.properties ?? {};
+            const ridingName =
+              (props.name as string) ??
+              (props.ridingName as string) ??
+              (props.ENNAME as string) ??
+              (props.ED_NAMEE as string) ??
+              (props.CF_NOMAN as string) ??
+              "";
+            const ridingKey = normalizeRidingKey(ridingName);
+            const fedId = getFedId(props);
+            if (ridingKey && fedId) ridingKeyToFedId[ridingKey] = fedId;
+          }
+
+          /** Activity keyed by FED_ID for choropleth join in geographies.map. */
+          const activityByFedId: Record<string, { tradeCount: number; party: string | null }> = {};
+          let maxCount = 0;
+          for (const a of activityItems) {
+            const fedId = ridingKeyToFedId[a.ridingKey];
+            if (fedId) {
+              activityByFedId[fedId] = { tradeCount: a.tradeCount, party: a.party };
+              if (a.tradeCount > maxCount) maxCount = a.tradeCount;
+            }
+          }
+          setActivityMax(maxCount);
+
+          const enrichedFeatures: GeoFeature[] = features.map((f: GeoFeature) => {
+            const props = f.properties ?? {};
+            const ridingName =
+              (props.name as string) ??
+              (props.ridingName as string) ??
+              (props.ENNAME as string) ??
+              (props.ED_NAMEE as string) ??
+              (props.CF_NOMAN as string) ??
+              "";
+            const fedId = getFedId(props);
+            const ridingKey = (props.ridingId as string) ?? normalizeRidingKey(ridingName);
+            const member = membersByRiding[ridingKey];
+            const activity = fedId ? activityByFedId[fedId] : undefined;
+            const _member: MemberInfo | undefined = member
+              ? {
+                  id: member.id,
+                  name: member.name,
+                  photoUrl: member.photoUrl ?? null,
+                  party: member.party ?? "",
+                }
+              : undefined;
+            return {
+              ...f,
+              properties: {
+                ...props,
+                ridingId: ridingKey,
+                ridingName: ridingName || (props.ridingName as string),
+                ENNAME: ridingName || (props.ENNAME as string),
+                name: ridingName || (props.name as string),
+                FED_ID: fedId || undefined,
+                _member,
+                _materialChangeCount: activity?.tradeCount ?? 0,
+              },
+            };
+          });
+
+          setGeoData({
+            type: geoJson.type ?? "FeatureCollection",
+            features: enrichedFeatures,
+          });
+        } else {
+          const res = await fetch(GEOJSON_ONTARIO);
+          if (!res.ok) {
+            setError(`Failed to load map (${res.status})`);
+            setLoading(false);
+            return;
+          }
+          const data = await res.json();
+          const normalized = normalizeGeoJson(data);
+          setGeoData({
+            type: normalized.type,
+            features: normalized.features as GeoFeature[],
+          });
         }
-        return normalized;
-      })
-      .then(setGeoData)
-      .catch(() => setError("Failed to load map"))
-      .finally(() => setLoading(false));
+        setLoading(false);
+      } catch (err) {
+        const e = err instanceof Error ? err : new Error(String(err));
+        console.error("[GovernanceMap] Load error:", e.message);
+        setError("Failed to load map");
+        setLoading(false);
+      }
+    };
+
+    load();
   }, [mounted, isFederal]);
+
+  /** Choropleth: more Material Changes (TradeTicker) = darker shade. */
+  const getFill = useCallback(
+    (geo: GeoFeature) => {
+      if (!isFederal) return "#F1F5F9";
+      const count = geo.properties?._materialChangeCount ?? 0;
+      if (count <= 0 || activityMax <= 0) return CHOROPLETH_LIGHT;
+      const t = Math.min(1, count / activityMax);
+      return interpolateColor(CHOROPLETH_LIGHT, CHOROPLETH_BASE, t);
+    },
+    [isFederal, activityMax]
+  );
 
   const handleMouseEnter = useCallback(
     (evt: React.MouseEvent<SVGPathElement>, geo: GeoFeature) => {
-      const rid = geo.properties?.ridingId ?? "unknown";
-      const info = getRidingInfo(rid);
-      setHoveredId(rid);
-      setTooltip({
-        x: evt.clientX,
-        y: evt.clientY,
-        ridingName: info.ridingName,
-        representative: info.representative,
-        integrityRating: info.integrityRating,
-        ridingId: rid,
-      });
+      const rid = geo.properties?.ridingId ?? geo.properties?.ridingName ?? "unknown";
+      if (isFederal && geo.properties?._member) {
+        const m = geo.properties._member;
+        const materialChangeCount = geo.properties?._materialChangeCount ?? 0;
+        setHoveredId(rid);
+        setTooltip({
+          x: evt.clientX,
+          y: evt.clientY,
+          ridingName: (geo.properties?.ridingName as string) ?? (geo.properties?.name as string) ?? "",
+          memberName: m.name,
+          memberPhotoUrl: m.photoUrl,
+          party: m.party,
+          ridingId: rid,
+          materialChangeCount: materialChangeCount > 0 ? materialChangeCount : undefined,
+        });
+      } else {
+        const info = getRidingInfo(rid);
+        setHoveredId(rid);
+        setTooltip({
+          x: evt.clientX,
+          y: evt.clientY,
+          ridingName: info.ridingName,
+          memberName: info.representative,
+          memberPhotoUrl: null,
+          party: "",
+          ridingId: rid,
+        });
+      }
     },
-    []
+    [isFederal]
   );
 
   const handleMouseMove = useCallback(
@@ -141,20 +356,28 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
   }, []);
 
   const handleClick = useCallback(
-    (_evt: React.MouseEvent, geo: GeoFeature) => {
-      const enname =
-        (geo.properties?.ENNAME as string) ??
+    (evt: React.MouseEvent, geo: GeoFeature) => {
+      evt.preventDefault();
+      const ridingName =
+        (geo.properties?.name as string) ??
         (geo.properties?.ridingName as string) ??
-        geo.properties?.ridingId ??
-        "unknown";
-      setClickLoading(true);
-      router.push(`/mps/${encodeURIComponent(String(enname))}`);
-      setClickLoading(false);
+        (geo.properties?.ENNAME as string) ??
+        "";
+      const member = geo.properties?._member;
+      if (isFederal && member) {
+        setClickLoading(true);
+        router.push(`/mps/${encodeURIComponent(member.id)}`);
+        setClickLoading(false);
+      } else {
+        setClickLoading(true);
+        router.push(`/mps?q=${encodeURIComponent(ridingName || "unknown")}`);
+        setClickLoading(false);
+      }
     },
-    [router]
+    [router, isFederal]
   );
 
-  if (!mounted) {
+  if (typeof window === "undefined" || !mounted) {
     return null;
   }
 
@@ -167,7 +390,6 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
     );
   }
 
-  // Lambert Conformal Conic for Canada: standard parallels 49°N and 77°N, central meridian ~96°W
   const projectionConfig = isFederal
     ? {
         scale: 600,
@@ -185,9 +407,7 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
           aria-live="polite"
           aria-busy="true"
         >
-          <p className="font-sans text-sm font-medium text-[#0F172A]">
-            Loading profile…
-          </p>
+          <p className="font-sans text-sm font-medium text-[#0F172A]">Loading profile…</p>
         </div>
       )}
       <ComposableMap
@@ -196,39 +416,66 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
         className="w-full h-full rounded-[4px]"
         style={{ backgroundColor: "#F1F5F9" }}
       >
-        <Geographies geography={geoData}>
-          {({ geographies }) =>
-            (geographies as GeoFeature[]).map((geo) => (
-              <MemoizedGeography
-                key={geo.rsmKey}
-                geo={geo}
-                isHovered={hoveredId === (geo.properties?.ridingId ?? "unknown")}
-                onMouseEnter={handleMouseEnter}
-                onMouseMove={handleMouseMove}
-                onMouseLeave={handleMouseLeave}
-                onClick={handleClick}
-              />
-            ))
-          }
-        </Geographies>
+        {geoData ? (
+          <Geographies geography={geoData}>
+            {({ geographies }) =>
+              (geographies as GeoFeature[]).map((geo) => {
+                const rid = geo.properties?.ridingId ?? geo.properties?.ridingName ?? "unknown";
+                return (
+                  <MemoizedGeography
+                    key={geo.rsmKey ?? rid}
+                    geo={geo}
+                    fill={getFill(geo)}
+                    isHovered={hoveredId === rid}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseMove={handleMouseMove}
+                    onMouseLeave={handleMouseLeave}
+                    onClick={handleClick}
+                  />
+                );
+              })
+            }
+          </Geographies>
+        ) : (
+          <MapSkeleton />
+        )}
       </ComposableMap>
       {tooltip && typeof window !== "undefined" && (
         <div
-          className="fixed z-50 pointer-events-none bg-white border border-[#0f172a]/10 shadow-lg px-4 py-3 rounded-[4px] max-w-[240px]"
+          className="fixed z-50 pointer-events-none bg-white border border-[#0f172a]/10 shadow-lg px-4 py-3 rounded-[4px] max-w-[260px]"
           style={{
-            left: Math.min(tooltip.x + 12, window.innerWidth - 260),
+            left: Math.min(tooltip.x + 12, window.innerWidth - 280),
             top: tooltip.y + 12,
           }}
         >
-          <p className="font-serif font-semibold text-[#0f172a] text-sm mb-1">
-            {tooltip.ridingName}
-          </p>
-          <p className="text-xs text-[#64748B] font-sans mb-1">
-            {tooltip.representative}
-          </p>
-          <p className="text-xs text-[#0f172a] font-sans font-medium">
-            Integrity Rating: {tooltip.integrityRating}/100
-          </p>
+          <div className="flex items-start gap-3">
+            {tooltip.memberPhotoUrl ? (
+              <span className="relative flex-shrink-0 w-12 h-12 rounded-full overflow-hidden bg-[#F1F5F9]">
+                <Image
+                  src={tooltip.memberPhotoUrl}
+                  alt=""
+                  width={48}
+                  height={48}
+                  className="object-cover w-full h-full"
+                  unoptimized
+                />
+              </span>
+            ) : null}
+            <div className="min-w-0">
+              <p className="font-serif font-semibold text-[#0f172a] text-sm mb-0.5">
+                {tooltip.memberName || tooltip.ridingName}
+              </p>
+              <p className="text-xs text-[#64748B] font-sans">
+                {tooltip.ridingName}
+                {tooltip.party ? ` · ${tooltip.party}` : ""}
+                {tooltip.materialChangeCount != null && tooltip.materialChangeCount > 0 ? (
+                  <span className="block mt-1 text-[#0f172a] font-medium">
+                    {tooltip.materialChangeCount} Material Change{tooltip.materialChangeCount !== 1 ? "s" : ""}
+                  </span>
+                ) : null}
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
