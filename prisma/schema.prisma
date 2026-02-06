@@ -10,16 +10,17 @@ datasource db {
 
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model Member {
-  id           String        @id @default(cuid())
-  name         String
-  riding       String
-  party        String
-  jurisdiction String
-  photoUrl     String?
-  chamber      String?
-  officialId   String?       @unique
-  disclosures  Disclosure[]
-  tradeTickers TradeTicker[]
+  id            String        @id @default(cuid())
+  name          String
+  riding        String
+  party         String
+  jurisdiction  String
+  photoUrl      String?
+  chamber       String?
+  officialId    String?       @unique
+  integrityRank Float?        // 0–100, computed by sync
+  disclosures   Disclosure[]
+  tradeTickers  TradeTicker[]
 
   @@index([name(ops: raw("gin_trgm_ops"))], map: "Member_name_gin_trgm", type: Gin)
   @@index([riding(ops: raw("gin_trgm_ops"))], map: "Member_riding_gin_trgm", type: Gin)
@@ -33,6 +34,8 @@ model Disclosure {
   memberId       String
   disclosureDate DateTime?
   createdAt      DateTime  @default(now()) // when record was filed in our system (for integrity rank)
+  conflictFlag   Boolean   @default(false) // High-Risk conflict from Pulse audit
+  conflictReason String?   // e.g. "Committee: Finance | Asset: TD"
   member         Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 

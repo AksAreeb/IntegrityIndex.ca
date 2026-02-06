@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { MemberProfile, Asset, Jurisdiction, IndustryShare, VoteRecord } from "@/types";
 import { getMemberProfile as getMockMemberProfile } from "@/lib/fallback-data";
+import { calculateIntegrityRank } from "@/lib/sync-engine";
 
 /**
  * Fetches a member by riding ID (same identifier as GeoJSON riding_id used in GovernanceMap).
@@ -20,6 +21,7 @@ export async function getMemberByRidingId(
         riding: true,
         jurisdiction: true,
         party: true,
+        integrityRank: true,
         disclosures: { select: { id: true, category: true, description: true } },
         tradeTickers: { select: { symbol: true } },
       },
@@ -37,9 +39,8 @@ export async function getMemberByRidingId(
       disclosureDate: "",
     }));
 
-    const tradeCount = member.tradeTickers.length;
-    const conflictCount = 0;
-    const integrityScore = Math.max(0, 100 - tradeCount * 5 - conflictCount * 15);
+    const integrityScore =
+      member.integrityRank ?? (await calculateIntegrityRank(id));
     const executiveSummary = {
       attendancePercent: 0,
       integrityScore,

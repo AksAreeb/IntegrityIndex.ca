@@ -9,7 +9,7 @@ export function JurisdictionSwitcher() {
     <nav
       role="navigation"
       aria-label="Jurisdiction switcher — filters Members directory and search"
-      className="flex items-center gap-1 border border-[#E2E8F0] rounded-[4px] p-0.5 bg-[#FFFFFF]"
+      className="flex items-center gap-0.5 border-2 border-[#0F172A]/20 rounded-lg p-0.5 bg-[#F8FAFC] shadow-sm"
     >
       <JurisdictionButton
         active={jurisdiction === "FEDERAL"}
@@ -47,8 +47,8 @@ function JurisdictionButton({
       onClick={onClick}
       aria-pressed={active}
       aria-current={active ? "true" : undefined}
-      className={`px-4 py-2 text-sm font-sans font-medium transition-colors rounded-[4px] ${
-        active ? "text-white" : "text-[#0F172A] hover:bg-[#F1F5F9]"
+      className={`px-3 py-2 text-sm font-sans font-semibold transition-all rounded-md ${
+        active ? "text-white shadow-sm" : "text-[#475569] hover:text-[#0F172A] hover:bg-white/80"
       }`}
       style={active ? { backgroundColor: activeColor } : undefined}
     >

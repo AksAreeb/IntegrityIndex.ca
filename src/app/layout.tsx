@@ -19,11 +19,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL("https://integrityindex.ca"),
   title: {
-    default: "Integrity Index | Canada Member Disclosure Tracker",
+    default: "Integrity Index",
     template: "%s | Integrity Index",
   },
   description:
-    "The definitive real-time dashboard for Canadian MP and MPP financial disclosures and stock trades.",
+    "The definitive dashboard for Canadian MP and MPP financial disclosures and stock trades.",
   icons: {
     icon: "/logo.png",
   },

@@ -13,6 +13,8 @@ export interface MemberSearchResult {
   chamber: string | null;
   photoUrl: string | null;
   officialId: string | null;
+  /** Integrity Rank 0–100 from sync. Present when available. */
+  integrityRank?: number | null;
   /** Present when from fuzzy search: relevance score (0–1) */
   rank?: number;
 }

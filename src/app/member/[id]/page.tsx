@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/constants";
+import { checkConflict } from "@/lib/conflict-audit";
 import { AppShell } from "@/components/AppShell";
 import { MemberDisclosureTable } from "./MemberDisclosureTable";
 import { MemberTradeTable } from "./MemberTradeTable";
@@ -23,11 +24,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
   if (!member) return { title: "Member Not Found" };
   const canonical = `${SITE_URL}/member/${id}`;
-  return {
-    title: `${member.name} - Financial Integrity Profile`,
-    description: `View stock trades and conflict-of-interest audits for ${member.name}, representing ${member.riding}.`,
+  const { hasConflict } = await checkConflict(id);
+  const baseMeta: Metadata = {
+    title: hasConflict
+      ? `Public Interest Audit: ${member.name} Conflict Analysis`
+      : `${member.name} - Financial Integrity Profile`,
+    description: hasConflict
+      ? `Public Interest Audit: Conflict-of-interest analysis for ${member.name}, representing ${member.riding}. View flagged disclosures and committee overlaps.`
+      : `View stock trades and conflict-of-interest audits for ${member.name}, representing ${member.riding}.`,
     alternates: { canonical },
   };
+  if (hasConflict) {
+    baseMeta.other = {
+      "audit-type": "Public Interest Audit",
+      "audit-subject": `${member.name} Conflict Analysis`,
+    };
+  }
+  return baseMeta;
 }
 
 /**
@@ -78,6 +91,13 @@ function gradeColor(grade: string): string {
   }
 }
 
+/** Ring stroke color by Integrity Rank: Green >80, Yellow 50–80, Red <50 */
+function ringColor(rank: number): string {
+  if (rank > 80) return "stroke-emerald-500";
+  if (rank >= 50) return "stroke-amber-500";
+  return "stroke-red-500";
+}
+
 function normalizeJurisdiction(param: string | undefined): "federal" | "provincial" | null {
   const v = (param ?? "").toLowerCase();
   if (v === "federal") return "federal";
@@ -103,6 +123,7 @@ export default async function MemberProfileMasterPage({
       photoUrl: true,
       officialId: true,
       chamber: true,
+      integrityRank: true,
       disclosures: {
         orderBy: { id: "asc" as const },
         select: {
@@ -121,7 +142,8 @@ export default async function MemberProfileMasterPage({
 
   if (!member) notFound();
 
-  const integrityRank = computeIntegrityRank(member.disclosures);
+  const integrityRank =
+    member.integrityRank ?? computeIntegrityRank(member.disclosures);
   const grade = rankGrade(integrityRank);
 
   const bills = await prisma.bill.findMany({ take: 20 });
@@ -218,12 +240,39 @@ export default async function MemberProfileMasterPage({
             </p>
           </div>
           <div className="flex-shrink-0 flex flex-col items-center">
-            <span
-              className={`inline-flex items-center justify-center w-16 h-16 rounded-full text-2xl font-serif font-bold ${gradeColor(grade)}`}
+            <div
+              className="relative w-20 h-20 flex items-center justify-center"
               aria-label={`Integrity Rank ${integrityRank}: ${grade}`}
             >
-              {grade}
-            </span>
+              <svg
+                className="absolute inset-0 w-full h-full -rotate-90"
+                viewBox="0 0 36 36"
+              >
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="16"
+                  fill="none"
+                  stroke="#E2E8F0"
+                  strokeWidth="3"
+                />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="16"
+                  fill="none"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  className={ringColor(integrityRank)}
+                  strokeDasharray={`${integrityRank} 100`}
+                />
+              </svg>
+              <span
+                className={`relative text-xl font-serif font-bold ${gradeColor(grade)} w-12 h-12 rounded-full flex items-center justify-center`}
+              >
+                {grade}
+              </span>
+            </div>
             <span className="text-xs font-sans text-[#64748B] mt-2">
               Integrity Rank
             </span>

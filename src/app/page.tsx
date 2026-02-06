@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import { CommandKSearchBar } from "@/components/CommandKSearchBar";
+import { PulseFeed } from "@/components/PulseFeed";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/constants";
 
@@ -82,8 +83,9 @@ export default async function Home() {
                 The National Standard for Parliamentary Accountability.
               </h1>
               <p className="text-lg md:text-xl text-[#0F172A] max-w-2xl mx-auto mb-10">
-                Tracking the intersection of private interests and public policy.
-                Search for any Member of Parliament or Provincial Representative.
+                //Tracking the intersection of private interests and public policy.
+                //Search for any Member of Parliament or Provincial Representative.
+                Coming Soon.
               </p>
               <CommandKSearchBar />
               <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
@@ -102,6 +104,9 @@ export default async function Home() {
               </div>
             </div>
           </section>
+
+          {/* The Pulse — Automated Conflict Auditor */}
+          <PulseFeed />
 
           {/* Live Stats */}
           <section

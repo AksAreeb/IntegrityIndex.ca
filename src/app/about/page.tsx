@@ -4,6 +4,9 @@ import { AppShell } from "@/components/AppShell";
 import { SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
+  title: "About | Integrity Index",
+  description:
+    "The Integrity Index is a non-partisan initiative providing transparency for the Canadian public.",
   alternates: { canonical: `${SITE_URL}/about` },
 };
 

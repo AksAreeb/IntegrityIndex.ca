@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getLiveStockPrice } from "@/lib/api/stocks";
+import { checkConflict } from "@/lib/conflict-audit";
 
 export interface LiveTickerItem {
   memberName: string;
@@ -19,6 +20,9 @@ export interface LiveTickerItem {
   dailyChange?: number;
   changePercent?: number;
   party?: string;
+  /** Public Interest Audit — High-Risk Conflict flag */
+  isHighRiskConflict?: boolean;
+  conflictReason?: string;
 }
 
 export const dynamic = "force-dynamic";
@@ -65,6 +69,20 @@ export async function GET() {
       );
     }
 
+    const memberIds = [...new Set(recent.map((t) => t.memberId))];
+    const conflictCache: Record<
+      string,
+      { conflicts: { conflictReason: string; asset: string }[] }
+    > = {};
+    await Promise.all(
+      memberIds.map(async (mid) => {
+        const r = await checkConflict(mid);
+        conflictCache[mid] = {
+          conflicts: r.conflicts.map((c) => ({ conflictReason: c.conflictReason, asset: c.asset })),
+        };
+      })
+    );
+
     const symbols = [...new Set(recent.map((t) => t.symbol))];
     const prices: Record<
       string,
@@ -89,6 +107,10 @@ export async function GET() {
       const p = prices[t.symbol];
       const dateIso = t.date.toISOString();
       const dateYmd = dateIso.slice(0, 10);
+      const cache = conflictCache[t.memberId];
+      const conflict = cache?.conflicts?.find(
+        (c) => c.asset.toUpperCase() === t.symbol.toUpperCase()
+      );
       return {
         memberName: t.member.name,
         memberPhotoUrl: t.member.photoUrl ?? null,
@@ -104,6 +126,8 @@ export async function GET() {
         dailyChange: p?.dailyChange,
         changePercent: p?.changePercent,
         party: t.member.party ?? undefined,
+        isHighRiskConflict: !!conflict,
+        conflictReason: conflict?.conflictReason,
       };
     });
 

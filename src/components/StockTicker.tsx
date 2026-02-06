@@ -23,6 +23,9 @@ export interface TickerItem {
   dailyChange?: number;
   changePercent?: number;
   party?: string;
+  /** Public Interest Audit — High-Risk Conflict (shown in Gold) */
+  isHighRiskConflict?: boolean;
+  conflictReason?: string;
 }
 
 const PARTY_BORDER: Record<string, string> = {
@@ -145,12 +148,16 @@ function StockTickerInner() {
                       ? `$${item.currentPrice.toFixed(2)}`
                       : "—";
                   const action = item.type === "BUY" ? "bought" : "sold";
-                  const borderClass = getPartyBorder(item.party);
+                  const borderClass = item.isHighRiskConflict
+                    ? "border-l-[#B8860B]"
+                    : getPartyBorder(item.party);
+                  const isGold = !!item.isHighRiskConflict;
                   return (
                     <Link
                       key={`${item.memberId}-${item.symbol}-${item.dateIso}-${repeat}`}
-                      href={`/mps/${encodeURIComponent(item.memberId)}`}
-                      className={`flex items-center gap-2 pl-3 pr-4 py-1.5 rounded-full bg-white border border-[#E2E8F0] border-l-4 ${borderClass} hover:shadow-sm transition-shadow min-w-[280px]`}
+                      href={`/member/${encodeURIComponent(item.memberId)}`}
+                      className={`flex items-center gap-2 pl-3 pr-4 py-1.5 rounded-full bg-white border border-[#E2E8F0] border-l-4 ${borderClass} hover:shadow-sm transition-shadow min-w-[280px] ${isGold ? "ring-1 ring-amber-300/50" : ""}`}
+                      title={item.conflictReason}
                     >
                       <span className="relative flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-[#F1F5F9]">
                         <MemberPhoto
@@ -164,7 +171,10 @@ function StockTickerInner() {
                           alt={item.memberName}
                         />
                       </span>
-                      <span className="font-sans text-[11px] text-[#0F172A] whitespace-nowrap">
+                      <span className={`font-sans text-[11px] whitespace-nowrap ${isGold ? "text-[#8B6914]" : "text-[#0F172A]"}`}>
+                        {isGold && (
+                          <span className="text-[#B8860B] font-semibold mr-1" aria-label="Public Interest Audit">◆</span>
+                        )}
                         <span className="font-medium">{shortName(item.memberName)}</span>{" "}
                         {action} {item.symbol} @ {price} • {formatDisclosureDate(item.disclosureDate ?? item.date)}
                       </span>

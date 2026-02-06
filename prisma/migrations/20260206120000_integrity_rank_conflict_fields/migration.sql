@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "Member" ADD COLUMN IF NOT EXISTS "integrityRank" DOUBLE PRECISION;
+
+-- AlterTable
+ALTER TABLE "Disclosure" ADD COLUMN IF NOT EXISTS "conflictFlag" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Disclosure" ADD COLUMN IF NOT EXISTS "conflictReason" TEXT;

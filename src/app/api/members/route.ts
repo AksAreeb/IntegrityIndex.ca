@@ -38,7 +38,11 @@ export async function GET(request: Request) {
 
     const members = await prisma.member.findMany({
       where,
-      orderBy: [{ jurisdiction: "asc" }, { name: "asc" }],
+      orderBy: [
+        { integrityRank: { sort: "desc", nulls: "last" } },
+        { jurisdiction: "asc" },
+        { name: "asc" },
+      ],
       select: {
         id: true,
         name: true,
@@ -47,6 +51,7 @@ export async function GET(request: Request) {
         jurisdiction: true,
         chamber: true,
         photoUrl: true,
+        integrityRank: true,
       },
     });
 

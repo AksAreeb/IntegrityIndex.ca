@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/db";
+
+/** Re-export The Pulse conflict auditor for use across the app. */
+export { checkConflict, COMMITTEE_TO_SECTOR, ASSET_TO_SECTOR } from "@/lib/conflict-audit";
+import { checkConflict } from "@/lib/conflict-audit";
 import {
   scrapeCIEC,
   getMemberPhotoUrl as getFederalPhotoUrl,
@@ -12,6 +16,53 @@ import { fetchOntarioMpps } from "@/lib/scrapers/ontario";
 
 const FEDERAL_TARGET = 343;
 const ONTARIO_MPP_TARGET = 124;
+
+/** Days between two dates. */
+function daysBetween(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+/** Conflict count for penalty calculation. */
+type ConflictCount = number;
+
+/**
+ * Central Integrity Rank: Start at 100.
+ * Subtract 0.5 per average day between trade/disclosure date and when disclosed.
+ * Subtract 10 per active High-Risk conflict flag.
+ * Pass preComputedConflictCount to avoid re-calling checkConflict (e.g. in sync).
+ */
+export async function calculateIntegrityRank(
+  memberId: string,
+  preComputedConflictCount?: ConflictCount
+): Promise<number> {
+  const member = await prisma.member.findUnique({
+    where: { id: memberId },
+    select: {
+      disclosures: {
+        select: { disclosureDate: true, createdAt: true },
+      },
+    },
+  });
+  if (!member) return 0;
+
+  let avgDelayDays = 0;
+  const delays: number[] = [];
+  for (const d of member.disclosures) {
+    const discDate = d.disclosureDate ?? d.createdAt;
+    const delay = daysBetween(discDate, d.createdAt);
+    if (delay > 0) delays.push(delay);
+  }
+  if (delays.length > 0) {
+    avgDelayDays = delays.reduce((a, b) => a + b, 0) / delays.length;
+  }
+
+  const conflictCount =
+    preComputedConflictCount ?? (await checkConflict(memberId)).conflicts.length;
+  const conflictPenalty = conflictCount * 10;
+
+  let rank = 100 - avgDelayDays * 0.5 - conflictPenalty;
+  return Math.max(0, Math.min(100, Math.round(rank * 10) / 10));
+}
 const OLA_MPP_PHOTO_BASE =
   "https://www.ola.org/sites/default/files/styles/mpp_profile/public/mpp-photos";
 const BATCH_SIZE = 10;
@@ -227,6 +278,44 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
       step: "E_Roster",
       ok: false,
       detail: e instanceof Error ? e.message : "Roster fetch failed",
+    });
+  }
+
+  // Step F: Integrity Rank + Conflict flags — run for all 462+ representatives
+  try {
+    await prisma.disclosure.updateMany({
+      data: { conflictFlag: false, conflictReason: null },
+    });
+    const members = await prisma.member.findMany({ select: { id: true } });
+    let updated = 0;
+    for (const m of members) {
+      if (Date.now() - startTime > TIME_LIMIT_MS) break;
+      const { conflicts } = await checkConflict(m.id);
+      for (const c of conflicts) {
+        if (c.disclosureId != null) {
+          await prisma.disclosure.update({
+            where: { id: c.disclosureId },
+            data: { conflictFlag: true, conflictReason: c.conflictReason },
+          });
+        }
+      }
+      const rank = await calculateIntegrityRank(m.id, conflicts.length);
+      await prisma.member.update({
+        where: { id: m.id },
+        data: { integrityRank: rank },
+      });
+      updated += 1;
+    }
+    results.push({
+      step: "F_IntegrityRank",
+      ok: true,
+      detail: `${updated} members updated (integrity rank + conflict flags)`,
+    });
+  } catch (e) {
+    results.push({
+      step: "F_IntegrityRank",
+      ok: false,
+      detail: e instanceof Error ? e.message : "Integrity rank sync failed",
     });
   }
 
