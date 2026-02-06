@@ -26,19 +26,38 @@ async function shouldRunSync(): Promise<boolean> {
 
 /**
  * GET /api/cron/sync — Vercel Cron endpoint for scheduled disclosure sync.
- * Auth: x-vercel-cron === '1' (Vercel) OR Bearer CRON_SECRET (manual).
- * Runs sync when DB is empty or last successful sync is older than 24h (e.g. first request after deploy or daily midnight).
+ * Auth: 
+ *   - Authorization Bearer CRON_SECRET (if CRON_SECRET is set in Vercel)
+ *   - OR x-vercel-id header present (Vercel internal request)
+ *   - OR manual trigger with Bearer CRON_SECRET
+ * Runs sync when DB is empty or last successful sync is older than 24h.
  */
 export async function GET(request: Request) {
-  const isVercelCron = request.headers.get("x-vercel-cron") === "1";
-  const isManual = request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+  const authHeader = request.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET;
+  const vercelId = request.headers.get("x-vercel-id");
+  const legacyCronHeader = request.headers.get("x-vercel-cron");
+  
+  // Check for Authorization header with CRON_SECRET (Vercel cron or manual)
+  const hasValidAuth = cronSecret && authHeader === `Bearer ${cronSecret}`;
+  
+  // Check if request is from Vercel (has Vercel-specific headers)
+  // Vercel cron jobs will have x-vercel-id header
+  const isVercelRequest = vercelId !== null || legacyCronHeader === "1";
+  
+  // Allow if: valid auth header OR Vercel request (for cron jobs)
+  const isAuthorized = hasValidAuth || isVercelRequest;
 
-  if (!isVercelCron && !isManual) {
+  if (!isAuthorized) {
     console.log("Auth failed. Headers found:", Array.from(request.headers.keys()));
+    console.log("Authorization header:", authHeader ? "present" : "missing");
+    console.log("CRON_SECRET set:", !!cronSecret);
+    console.log("x-vercel-id:", vercelId);
+    console.log("x-vercel-cron:", legacyCronHeader);
     return new Response("Unauthorized", { status: 401 });
   }
 
-  console.log("Cron Triggered - isVercelCron:", isVercelCron);
+  console.log("Cron Triggered - hasValidAuth:", hasValidAuth, "isVercelRequest:", isVercelRequest);
   console.log("Current App URL:", process.env.NEXT_PUBLIC_APP_URL);
 
   try {
