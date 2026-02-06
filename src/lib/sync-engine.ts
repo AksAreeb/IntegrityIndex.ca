@@ -17,6 +17,13 @@ const OLA_MPP_PHOTO_BASE =
 const BATCH_SIZE = 10;
 const TIME_LIMIT_MS = 50_000;
 
+/** Ensure value is never "(not available)" or empty so Prisma does not receive invalid data. */
+function normalizeMemberField(value: string | null | undefined, defaultVal: string): string {
+  const s = (value ?? "").trim();
+  if (!s || s === "(not available)" || s.toLowerCase() === "(not available)") return defaultVal;
+  return s;
+}
+
 export type SyncResultStep = { step: string; ok: boolean; detail?: string };
 
 export type RunScraperSyncResult = {
@@ -50,13 +57,17 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
       }
       const rows = await scrapeCIEC(m.id);
       for (const row of rows.slice(0, 3)) {
-        await prisma.disclosure.create({
-          data: {
-            memberId: m.id,
-            category: (row.natureOfInterest?.slice(0, 50) || "Other").slice(0, 50),
-            description: (row.assetName ?? "").slice(0, 500),
-          },
-        }).catch(() => {});
+        const category = normalizeMemberField(row.natureOfInterest, "Other").slice(0, 50);
+        const description = normalizeMemberField(row.assetName, "").slice(0, 500) || "—";
+        await prisma.disclosure
+          .create({
+            data: {
+              memberId: m.id,
+              category,
+              description,
+            },
+          })
+          .catch(() => {});
 
         if (row.isMaterialChange && row.date_disclosed && looksLikeTickerSymbol(row.assetName ?? "")) {
           const symbol = (row.assetName ?? "").trim().toUpperCase();
@@ -130,20 +141,25 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
         }
         const batch = federal.slice(i, i + BATCH_SIZE);
         for (const mp of batch) {
-          await prisma.member.upsert({
-            where: { id: mp.id },
-            create: {
-              id: mp.id,
-              name: mp.name,
-              riding: mp.riding,
-              party: mp.party,
-              jurisdiction: "FEDERAL",
-              chamber: "House of Commons",
-              photoUrl: getFederalPhotoUrl(mp.id),
-            },
-            update: { name: mp.name, riding: mp.riding, party: mp.party, photoUrl: getFederalPhotoUrl(mp.id) },
-          });
-          federalUpserted += 1;
+          const name = normalizeMemberField(mp.name, "Unknown");
+          const riding = normalizeMemberField(mp.riding, "Unknown");
+          const party = normalizeMemberField(mp.party, "Independent");
+          await prisma.member
+            .upsert({
+              where: { id: mp.id },
+              create: {
+                id: mp.id,
+                name,
+                riding,
+                party,
+                jurisdiction: "FEDERAL",
+                chamber: "House of Commons",
+                photoUrl: getFederalPhotoUrl(mp.id),
+              },
+              update: { name, riding, party, photoUrl: getFederalPhotoUrl(mp.id) },
+            })
+            .then(() => { federalUpserted += 1; })
+            .catch((err) => console.warn("[sync-engine] Federal member upsert failed:", mp.id, err));
         }
       }
       results.push({
@@ -157,7 +173,12 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
       results.push({ step: "E_Roster_Federal", ok: true, detail: `already ${federalCount} federal` });
     }
     if (provincialCount < ONTARIO_MPP_TARGET) {
-      const ontario = await fetchOntarioMpps();
+      let ontario: Awaited<ReturnType<typeof fetchOntarioMpps>> = [];
+      try {
+        ontario = await fetchOntarioMpps();
+      } catch (ontarioErr) {
+        console.warn("[sync-engine] Ontario MPP fetch failed (continuing without Ontario):", ontarioErr);
+      }
       let ontarioUpserted = 0;
       for (let i = 0; i < ontario.length; i += BATCH_SIZE) {
         if (Date.now() - startTime > TIME_LIMIT_MS) {
@@ -166,22 +187,27 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
         }
         const batch = ontario.slice(i, i + BATCH_SIZE);
         for (const mpp of batch) {
+          const name = normalizeMemberField(mpp.name, "Unknown");
+          const riding = normalizeMemberField(mpp.riding, "Unknown");
+          const party = normalizeMemberField(mpp.party, "Independent");
           const slug = mpp.id.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
           const photoUrl = `${OLA_MPP_PHOTO_BASE}/${encodeURIComponent(slug)}.jpg`;
-          await prisma.member.upsert({
-            where: { id: mpp.id },
-            create: {
-              id: mpp.id,
-              name: mpp.name,
-              riding: mpp.riding,
-              party: mpp.party,
-              jurisdiction: "PROVINCIAL",
-              chamber: "Legislative Assembly",
-              photoUrl,
-            },
-            update: { name: mpp.name, riding: mpp.riding, party: mpp.party, photoUrl },
-          });
-          ontarioUpserted += 1;
+          await prisma.member
+            .upsert({
+              where: { id: mpp.id },
+              create: {
+                id: mpp.id,
+                name,
+                riding,
+                party,
+                jurisdiction: "PROVINCIAL",
+                chamber: "Legislative Assembly",
+                photoUrl,
+              },
+              update: { name, riding, party, photoUrl },
+            })
+            .then(() => { ontarioUpserted += 1; })
+            .catch((err) => console.warn("[sync-engine] Ontario MPP upsert failed:", mpp.id, err));
         }
       }
       results.push({

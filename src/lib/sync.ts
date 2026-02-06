@@ -45,6 +45,13 @@ function slugify(s: string): string {
     .replace(/[^a-z0-9-]/g, "");
 }
 
+/** Normalize value: "(not available)" or empty must not be sent to Prisma (causes column error). */
+function normalizeMemberString(value: string, defaultVal: string): string {
+  const s = (value ?? "").trim();
+  if (!s || s === "(not available)" || s.toLowerCase() === "(not available)") return defaultVal;
+  return s;
+}
+
 /**
  * Parses OurCommons-style CSV (header row + data). Tolerates columns: Name, Constituency, Party, etc.
  */
@@ -68,18 +75,21 @@ export function parseFederalMembersFromCsv(csvText: string): FederalMpRecord[] {
   const rows: FederalMpRecord[] = [];
   for (let i = 1; i < lines.length; i++) {
     const parts = lines[i].split(",").map((p) => p.replace(/^"|"$/g, "").trim());
-    const name = (parts[nameIdx] ?? "").trim();
-    const riding = (parts[ridingIdx] ?? "").trim();
+    const rawName = (parts[nameIdx] ?? "").trim();
+    if (!rawName) continue;
+    const name = normalizeMemberString(rawName, "Unknown");
+    const riding = normalizeMemberString((parts[ridingIdx] ?? "").trim(), "Unknown");
     const rawParty = partyIdx >= 0 ? (parts[partyIdx] ?? "").trim() : "";
-    const party =
-      rawParty && rawParty !== name ? rawParty : "Independent";
+    const party = normalizeMemberString(
+      rawParty && rawParty !== name ? rawParty : "Independent",
+      "Independent"
+    );
     const id = idIdx >= 0 && parts[idIdx] ? String(parts[idIdx]).trim() : "";
-    if (!name) continue;
     rows.push({
       id: id || slugify(name + riding),
       name: name || "Unknown",
       riding: riding || "Unknown",
-      party,
+      party: party || "Independent",
     });
   }
   return rows;
@@ -112,20 +122,26 @@ export function parseFederalMembersFromJson(data: unknown): FederalMpRecord[] {
       const id = String(
         row.OfficialId ?? row.officialId ?? row.Id ?? row.id ?? ""
       ).trim();
-      const name = String(
-        row.PersonShortName ??
-          row.personShortName ??
-          row.Name ??
-          row.name ??
-          ""
-      ).trim();
-      const riding = String(
-        row.ConstituencyName ??
-          row.constituencyName ??
-          row.Riding ??
-          row.riding ??
-          ""
-      ).trim();
+      const name = normalizeMemberString(
+        String(
+          row.PersonShortName ??
+            row.personShortName ??
+            row.Name ??
+            row.name ??
+            ""
+        ),
+        "Unknown"
+      );
+      const riding = normalizeMemberString(
+        String(
+          row.ConstituencyName ??
+            row.constituencyName ??
+            row.Riding ??
+            row.riding ??
+            ""
+        ),
+        "Unknown"
+      );
       const rawParty = String(
         row.CaucusShortName ??
           row.caucusShortName ??
@@ -133,14 +149,16 @@ export function parseFederalMembersFromJson(data: unknown): FederalMpRecord[] {
           row.party ??
           ""
       ).trim();
-      const party =
-        rawParty && rawParty !== name ? rawParty : "Independent";
+      const party = normalizeMemberString(
+        rawParty && rawParty !== name ? rawParty : "Independent",
+        "Independent"
+      );
       if (!id && !name) return null;
       return {
         id: id || slugify(name + riding),
         name: name || "Unknown",
         riding: riding || "Unknown",
-        party,
+        party: party || "Independent",
       };
     })
     .filter((r): r is FederalMpRecord => r !== null && !!r.name);
