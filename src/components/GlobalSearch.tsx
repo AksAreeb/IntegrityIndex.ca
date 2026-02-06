@@ -335,7 +335,7 @@ export function GlobalSearch() {
                     activeIndex === i ? "bg-[#F1F5F9]" : "hover:bg-[#F8FAFC]"
                   }`}
                   onMouseEnter={() => setActiveIndex(i)}
-                  onClick={() => goTo(opt.path)}
+                  onClick={() => opt.path && goTo(opt.path)}
                 >
                   <span className="font-medium text-[#0F172A]">{opt.label}</span>
                   <span className="block text-xs text-[#94A3B8]">View profile</span>
