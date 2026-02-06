@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Serif, Inter } from "next/font/google";
 import { JurisdictionProvider } from "@/contexts/JurisdictionContext";
 import { logger } from "@/lib/logger";
+import { Analytics } from "@vercel/analytics/next"
 import "./globals.css";
 
 const ibmPlexSerif = IBM_Plex_Serif({
