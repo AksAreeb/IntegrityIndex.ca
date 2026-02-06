@@ -7,16 +7,20 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/cron/sync — Vercel Cron endpoint for scheduled disclosure sync.
- * Secured by Vercel's native cron header: x-vercel-cron === '1'.
+ * Auth: x-vercel-cron === '1' (Vercel) OR Bearer CRON_SECRET (manual).
  * Runs the sync engine directly (no internal fetch).
  */
 export async function GET(request: Request) {
-  if (request.headers.get("x-vercel-cron") !== "1") {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
+  const isVercelCron = request.headers.get("x-vercel-cron") === "1";
+  const isManual = request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+
+  if (!isVercelCron && !isManual) {
+    console.log("Auth failed. Headers found:", Array.from(request.headers.keys()));
+    return new Response("Unauthorized", { status: 401 });
   }
+
+  console.log("Cron Triggered - isVercelCron:", isVercelCron);
+  console.log("Current App URL:", process.env.NEXT_PUBLIC_APP_URL);
 
   try {
     const data = await runScraperSync();
