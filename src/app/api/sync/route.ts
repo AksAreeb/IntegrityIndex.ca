@@ -27,6 +27,17 @@ const OLA_MPP_PHOTO_BASE =
  * D) Upsert Bill, Member, Disclosure, TradeTicker
  */
 export async function GET(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  const authHeader = request.headers.get("authorization");
+
+  if (!secret || authHeader !== `Bearer ${secret}`) {
+    return NextResponse.json(
+      { error: "Engine Authentication Failed" },
+      { status: 401 }
+    );
+  }
+  console.log("Engine Authenticated Successfully");
+
   try {
     const { searchParams } = new URL(request.url);
     if (searchParams.get("dryRun") === "ciec") {
