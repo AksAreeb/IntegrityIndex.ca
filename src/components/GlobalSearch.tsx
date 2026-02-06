@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useJurisdiction } from "@/contexts/JurisdictionContext";
 
 type SearchMember = {
   id: string;
@@ -34,8 +35,12 @@ function normalizePostal(q: string): string {
   return q.replace(/\s+/g, "").toUpperCase().slice(0, 6);
 }
 
+const jurisdictionParam = (j: "FEDERAL" | "PROVINCIAL") =>
+  j === "FEDERAL" ? "federal" : "provincial";
+
 export function GlobalSearch() {
   const router = useRouter();
+  const { jurisdiction } = useJurisdiction();
   const [query, setQuery] = useState("");
   const [members, setMembers] = useState<SearchMember[]>([]);
   const [postal, setPostal] = useState<PostalResult | null>(null);
@@ -46,28 +51,42 @@ export function GlobalSearch() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const [postalSuggestions, setPostalSuggestions] = useState<string[]>([]);
+
   const runSearch = useCallback(async (q: string) => {
     const trimmed = q.trim();
     if (!trimmed) {
       setMembers([]);
       setPostal(null);
+      setPostalSuggestions([]);
       return;
     }
     setLoading(true);
     setActiveIndex(-1);
 
-    const isPostal = POSTAL_REG.test(normalizePostal(trimmed));
+    const normalized = normalizePostal(trimmed);
+    const isPostal = POSTAL_REG.test(normalized);
+    const isPartialPostal = /^[A-Za-z]\d[A-Za-z]/.test(normalized) && normalized.length >= 3 && normalized.length < 6;
+    
     let memberList: SearchMember[] = [];
     let postalResult: PostalResult | null = null;
+    const jParam = jurisdictionParam(jurisdiction);
 
     try {
+      // If partial postal code, show suggestion hint
+      if (isPartialPostal) {
+        setPostalSuggestions([`Complete postal code (e.g., ${normalized}0B1) to find your representative`]);
+      } else {
+        setPostalSuggestions([]);
+      }
+
       const [membersRes, postalRes] = await Promise.all([
-        fetch(`/api/members?q=${encodeURIComponent(trimmed)}`).then((r) =>
-          r.ok ? r.json() : { members: [] }
-        ),
-        isPostal
+        fetch(
+          `/api/members?q=${encodeURIComponent(trimmed)}&jurisdiction=${encodeURIComponent(jParam)}`
+        ).then((r) => (r.ok ? r.json() : { members: [] })),
+        isPostal && normalized.length === 6
           ? fetch(
-              `/api/geo/postal?code=${encodeURIComponent(normalizePostal(trimmed))}&resolve=1`
+              `/api/geo/postal?code=${encodeURIComponent(normalized)}&resolve=1`
             ).then((r) => (r.ok ? r.json() : null))
           : Promise.resolve(null),
       ]);
@@ -79,17 +98,19 @@ export function GlobalSearch() {
           ridingName: postalRes.ridingName,
           memberName: postalRes.memberName,
         };
+        setPostalSuggestions([]);
       }
     } catch (e) {
       console.error("[GlobalSearch]: runSearch failed", e);
       memberList = [];
       postalResult = null;
+      setPostalSuggestions([]);
     }
 
     setMembers(memberList);
     setPostal(postalResult);
     setLoading(false);
-  }, []);
+  }, [jurisdiction]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -102,7 +123,7 @@ export function GlobalSearch() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, runSearch]);
+  }, [query, runSearch, jurisdiction]);
 
   useEffect(() => {
     if (!open) return;
@@ -136,22 +157,25 @@ export function GlobalSearch() {
   const ridings = [...new Set(members.map((m) => m.riding))].slice(0, 6);
   const hasQuery = query.trim().length > 0;
 
-  const options: { type: "postal" | "member" | "riding" | "trade"; id: string; label: string; path: string }[] = [];
+  const options: { type: "postal" | "member" | "riding" | "trade" | "suggestion"; id: string; label: string; path?: string }[] = [];
   if (postal) options.push({ type: "postal", id: "postal", label: `${postal.memberName} — ${postal.ridingName}`, path: `/mps/${encodeURIComponent(postal.ridingId)}` });
-  members.slice(0, 6).forEach((m) => options.push({ type: "member", id: m.id, label: `${m.name} — ${m.riding}`, path: `/mps/${encodeURIComponent(m.id)}` }));
-  if (hasQuery) ridings.forEach((r) => options.push({ type: "riding", id: `riding-${r}`, label: r, path: `/mps?q=${encodeURIComponent(r)}` }));
+  // Postal code suggestions (hints)
+  postalSuggestions.forEach((s, i) => options.push({ type: "suggestion", id: `postal-hint-${i}`, label: s }));
+  members.slice(0, 6).forEach((m) => options.push({ type: "member", id: m.id, label: `${m.name} — ${m.riding}`, path: `/member/${encodeURIComponent(m.id)}?jurisdiction=${encodeURIComponent(jurisdictionParam(jurisdiction))}` }));
+  if (hasQuery) ridings.forEach((r) => options.push({ type: "riding", id: `riding-${r}`, label: r, path: `/members?q=${encodeURIComponent(r)}` }));
   if (!hasQuery && recentTrades.length > 0) {
     recentTrades.forEach((t, i) =>
       options.push({
         type: "trade",
         id: `trade-${t.memberId}-${t.symbol}-${t.date}-${i}`,
         label: `${t.memberName} ${t.type} ${t.symbol}`,
-        path: `/mps/${encodeURIComponent(t.memberId)}`,
+        path: `/member/${encodeURIComponent(t.memberId)}?jurisdiction=${encodeURIComponent(jurisdictionParam(jurisdiction))}`,
       })
     );
   }
 
   const repOptions = options.filter((o) => o.type === "postal" || o.type === "member");
+  const suggestionOptions = options.filter((o) => o.type === "suggestion");
   const rideOptions = options.filter((o) => o.type === "riding");
   const tradeOptions = options.filter((o) => o.type === "trade");
   const totalOptions = options.length;
@@ -175,9 +199,9 @@ export function GlobalSearch() {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIndex((i) => (i > 0 ? i - 1 : -1));
-    } else if (e.key === "Enter" && activeIndex >= 0 && options[activeIndex]) {
+    } else if (e.key === "Enter" && activeIndex >= 0 && options[activeIndex] && options[activeIndex].path) {
       e.preventDefault();
-      goTo(options[activeIndex].path);
+      goTo(options[activeIndex].path!);
     }
   };
 
@@ -210,36 +234,56 @@ export function GlobalSearch() {
         >
           {hasQuery && (
             <>
+              {suggestionOptions.length > 0 && (
+                <>
+                  <div className="px-3 py-2 border-b border-[#E2E8F0] bg-[#F8FAFC]">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
+                      Postal Code
+                    </span>
+                  </div>
+                  {suggestionOptions.map((opt, i) => (
+                    <div
+                      key={opt.id}
+                      className="px-4 py-2.5 text-sm text-[#64748B] italic"
+                    >
+                      {opt.label}
+                    </div>
+                  ))}
+                </>
+              )}
               {repOptions.length > 0 && (
-                <div className="px-3 py-2 border-b border-[#E2E8F0] bg-[#F8FAFC]">
+                <div className={`px-3 py-2 ${suggestionOptions.length > 0 ? "border-t border-b" : "border-b"} border-[#E2E8F0] bg-[#F8FAFC]`}>
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">
-                    Representatives
+                    Members
                   </span>
                 </div>
               )}
-              {loading && repOptions.length === 0 && (
+              {loading && repOptions.length === 0 && suggestionOptions.length === 0 && (
                 <div className="px-4 py-3 text-sm text-[#64748B]">Searching…</div>
               )}
               {!loading &&
-                repOptions.map((opt, i) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    id={`global-search-option-${i}`}
-                    role="option"
-                    aria-selected={activeIndex === i}
-                    className={`w-full text-left px-4 py-2.5 text-sm cursor-pointer ${
-                      activeIndex === i ? "bg-[#F1F5F9]" : "hover:bg-[#F8FAFC]"
-                    }`}
-                    onMouseEnter={() => setActiveIndex(i)}
-                    onClick={() => goTo(opt.path)}
-                  >
-                    <span className="font-medium text-[#0F172A]">{opt.label}</span>
-                    {opt.type === "postal" && (
-                      <span className="block text-xs text-[#94A3B8]">Postal code result</span>
-                    )}
-                  </button>
-                ))}
+                repOptions.map((opt, i) => {
+                  const idx = suggestionOptions.length + i;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      id={`global-search-option-${idx}`}
+                      role="option"
+                      aria-selected={activeIndex === idx}
+                      className={`w-full text-left px-4 py-2.5 text-sm cursor-pointer ${
+                        activeIndex === idx ? "bg-[#F1F5F9]" : "hover:bg-[#F8FAFC]"
+                      }`}
+                      onMouseEnter={() => setActiveIndex(idx)}
+                      onClick={() => opt.path && goTo(opt.path)}
+                    >
+                      <span className="font-medium text-[#0F172A]">{opt.label}</span>
+                      {opt.type === "postal" && (
+                        <span className="block text-xs text-[#94A3B8]">Postal code result</span>
+                      )}
+                    </button>
+                  );
+                })}
               {!loading && rideOptions.length > 0 && (
                 <>
                   <div className="px-3 py-2 border-b border-t border-[#E2E8F0] bg-[#F8FAFC]">
@@ -248,7 +292,7 @@ export function GlobalSearch() {
                     </span>
                   </div>
                   {rideOptions.map((opt, i) => {
-                    const idx = repOptions.length + i;
+                    const idx = suggestionOptions.length + repOptions.length + i;
                     return (
                       <button
                         key={opt.id}
@@ -260,7 +304,7 @@ export function GlobalSearch() {
                           activeIndex === idx ? "bg-[#F1F5F9]" : "hover:bg-[#F8FAFC]"
                         }`}
                         onMouseEnter={() => setActiveIndex(idx)}
-                        onClick={() => goTo(opt.path)}
+                        onClick={() => opt.path && goTo(opt.path)}
                       >
                         <span className="font-medium text-[#0F172A]">{opt.label}</span>
                       </button>

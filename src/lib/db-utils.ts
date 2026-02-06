@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { Jurisdiction } from "@/lib/mock-data";
+import type { Jurisdiction } from "@/types";
 
 /**
  * Finds the MP assigned to the given electoral district ID (riding number).

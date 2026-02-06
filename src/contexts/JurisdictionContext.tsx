@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback } from "react";
-import type { Jurisdiction } from "@/lib/mock-data";
+import type { Jurisdiction } from "@/types";
 
 interface JurisdictionContextValue {
   jurisdiction: Jurisdiction;

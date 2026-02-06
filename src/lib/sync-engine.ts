@@ -8,7 +8,7 @@ import { getLiveStockPrice } from "@/lib/api/stocks";
 import { syncBillsToDatabase } from "@/lib/api/legisinfo";
 import { setLastSuccessfulSync } from "@/lib/admin-health";
 import { fetchFederalMembers } from "@/lib/sync";
-import { fetchOntarioMpps } from "@/lib/api/ontario-mpps";
+import { fetchOntarioMpps } from "@/lib/scrapers/ontario";
 
 const FEDERAL_TARGET = 343;
 const ONTARIO_MPP_TARGET = 124;
@@ -191,7 +191,9 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
           const riding = normalizeMemberField(mpp.riding, "Unknown");
           const party = normalizeMemberField(mpp.party, "Independent");
           const slug = mpp.id.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-          const photoUrl = `${OLA_MPP_PHOTO_BASE}/${encodeURIComponent(slug)}.jpg`;
+          const photoUrl =
+            (mpp as { imageUrl?: string }).imageUrl?.trim() ||
+            `${OLA_MPP_PHOTO_BASE}/${encodeURIComponent(slug)}.jpg`;
           await prisma.member
             .upsert({
               where: { id: mpp.id },

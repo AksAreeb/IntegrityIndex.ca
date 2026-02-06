@@ -5,13 +5,18 @@ import Image from "next/image";
 import {
   getMemberPhotoUrl,
   getFederalPhotoFallbackUrl,
-  isFederal45PhotoUrl,
+  isFederalMemberPhotosUrl,
 } from "@/lib/member-photos";
 
 const PLACEHOLDER_AVATAR = "/avatars/placeholder.svg";
 
 interface MemberPhotoProps {
-  member: { id: string; jurisdiction: string; photoUrl?: string | null };
+  member: {
+    id: string;
+    jurisdiction: string;
+    photoUrl?: string | null;
+    officialId?: string | null;
+  };
   width?: number;
   height?: number;
   size?: number;
@@ -30,7 +35,7 @@ export function MemberPhoto({
   const [errorState, setErrorState] = useState<"none" | "tried44" | "placeholder">("none");
   const fallback44 =
     member.jurisdiction.toUpperCase() === "FEDERAL"
-      ? getFederalPhotoFallbackUrl(member.id)
+      ? getFederalPhotoFallbackUrl(member.officialId ?? member.id)
       : null;
   const primarySrc = getMemberPhotoUrl(member);
 
@@ -47,7 +52,7 @@ export function MemberPhoto({
     src.startsWith("/");
 
   const handleError = () => {
-    if (errorState === "none" && fallback44 && isFederal45PhotoUrl(primarySrc)) {
+    if (errorState === "none" && fallback44 && isFederalMemberPhotosUrl(primarySrc)) {
       setErrorState("tried44");
       return;
     }

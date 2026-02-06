@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import { LegislationTable } from "./LegislationTable";
 import { prisma } from "@/lib/db";
-import { getBillSummary } from "@/lib/mock-data";
+import { getBillSummary } from "@/lib/fallback-data";
 import { getLinkedTickers, getSectorImpact } from "@/lib/bill-sectors";
 import { getContextualBillSummary } from "@/lib/bills";
 import { fetchLegisinfoBillsApi, isKeyVoteBill } from "@/lib/api/legisinfo";

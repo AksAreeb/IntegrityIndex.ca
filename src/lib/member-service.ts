@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { MemberProfile, Asset, Jurisdiction, IndustryShare, VoteRecord } from "@/types";
-import { getMemberProfile as getMockMemberProfile } from "@/lib/mock-data";
+import { getMemberProfile as getMockMemberProfile } from "@/lib/fallback-data";
 
 /**
  * Fetches a member by riding ID (same identifier as GeoJSON riding_id used in GovernanceMap).

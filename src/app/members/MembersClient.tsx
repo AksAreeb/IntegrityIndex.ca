@@ -1,15 +1,22 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useDeferredValue, useMemo } from "react";
 import Link from "next/link";
 import { SearchInput } from "@/components/SearchInput";
 import { MemberPhoto } from "@/components/MemberPhoto";
-import { searchMembers, type MemberSearchResult } from "@/app/actions/members";
+import { useJurisdiction } from "@/contexts/JurisdictionContext";
+import type { MemberSearchResult } from "@/app/actions/members";
 
-function MemberCard({ member }: { member: MemberSearchResult }) {
+function MemberCard({
+  member,
+  jurisdictionParam,
+}: {
+  member: MemberSearchResult;
+  jurisdictionParam: string;
+}) {
   return (
     <Link
-      href={`/member/${member.id}`}
+      href={`/member/${member.id}?jurisdiction=${encodeURIComponent(jurisdictionParam)}`}
       className="group flex items-center gap-4 p-4 rounded-[4px] border border-[#E2E8F0] bg-white hover:border-[#0F172A] hover:shadow-sm transition-colors"
     >
       <span className="block w-16 h-16 rounded-full overflow-hidden bg-[#F1F5F9] flex-shrink-0">
@@ -28,7 +35,13 @@ function MemberCard({ member }: { member: MemberSearchResult }) {
   );
 }
 
-export function MemberGrid({ members }: { members: MemberSearchResult[] }) {
+export function MemberGrid({
+  members,
+  jurisdictionParam: jParam,
+}: {
+  members: MemberSearchResult[];
+  jurisdictionParam: string;
+}) {
   if (members.length === 0) {
     return (
       <p className="py-12 text-center text-[#64748B] text-sm">
@@ -39,34 +52,83 @@ export function MemberGrid({ members }: { members: MemberSearchResult[] }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {members.map((m) => (
-        <MemberCard key={m.id} member={m} />
+        <MemberCard key={m.id} member={m} jurisdictionParam={jParam} />
       ))}
     </div>
   );
 }
+
+const jurisdictionParam = (j: "FEDERAL" | "PROVINCIAL") =>
+  j === "FEDERAL" ? "federal" : "provincial";
 
 interface MembersClientProps {
   initialMembers: MemberSearchResult[];
 }
 
 export function MembersClient({ initialMembers }: MembersClientProps) {
+  const { jurisdiction } = useJurisdiction();
   const [query, setQuery] = useState("");
   const [members, setMembers] = useState<MemberSearchResult[]>(initialMembers);
+  const [loading, setLoading] = useState(false);
+  
+  // Defer the members list to prevent re-render lag while user types
+  const deferredMembers = useDeferredValue(members);
 
-  const handleSearch = useCallback(async (q: string) => {
-    const results = await searchMembers(q);
-    setMembers(results);
-  }, []);
+  const fetchMembers = useCallback(
+    async (q: string) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ jurisdiction: jurisdictionParam(jurisdiction) });
+        if (q.trim()) params.set("q", q.trim());
+        const res = await fetch(`/api/members?${params.toString()}`);
+        const data = await res.json();
+        setMembers((data.members ?? []) as MemberSearchResult[]);
+      } catch {
+        setMembers([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [jurisdiction]
+  );
+
+  // Refetch when jurisdiction changes; initial load uses current query (e.g. "")
+  useEffect(() => {
+    fetchMembers(query);
+  }, [jurisdiction]); // eslint-disable-line react-hooks/exhaustive-deps -- only refetch on jurisdiction change; query handled by handleSearch
+
+  const handleSearch = useCallback(
+    async (q: string) => {
+      setQuery(q);
+      await fetchMembers(q);
+    },
+    [fetchMembers]
+  );
+
+  const isPending = loading;
+  const showDeferred = deferredMembers.length > 0 || (!isPending && query === "");
 
   return (
     <div className="space-y-6">
       <SearchInput
+        id="members-directory-search"
         value={query}
         onChange={setQuery}
         onSearch={handleSearch}
         debounceMs={300}
       />
-      <MemberGrid members={members} />
+      {isPending ? (
+        <p className="py-8 text-center text-[#64748B] text-sm">Loading…</p>
+      ) : showDeferred ? (
+        <MemberGrid
+          members={deferredMembers}
+          jurisdictionParam={jurisdictionParam(jurisdiction)}
+        />
+      ) : (
+        <p className="py-12 text-center text-[#64748B] text-sm">
+          No members match. Try a different search or run seed to populate.
+        </p>
+      )}
     </div>
   );
 }

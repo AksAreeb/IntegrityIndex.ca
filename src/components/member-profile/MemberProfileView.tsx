@@ -32,10 +32,10 @@ export function MemberProfileView({
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
       <Link
-        href="/dashboard"
+        href="/"
         className="inline-block text-sm font-sans text-[#64748B] hover:text-[#0F172A] mb-6"
       >
-        Back to Dashboard
+        Back to home
       </Link>
 
       <div className="mb-8">

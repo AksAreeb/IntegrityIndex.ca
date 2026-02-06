@@ -66,9 +66,14 @@ export async function searchMembers(query: string): Promise<MemberSearchResult[]
   }));
 }
 
-/** List all members (paginated, limit 50). Used for default state. */
-export async function listMembers(limit = 50): Promise<MemberSearchResult[]> {
+/** List members (paginated, limit 50). Optional jurisdiction filters to federal or provincial. */
+export async function listMembers(
+  limit = 50,
+  jurisdiction?: "FEDERAL" | "PROVINCIAL"
+): Promise<MemberSearchResult[]> {
+  const where = jurisdiction ? { jurisdiction } : undefined;
   const members = await prisma.member.findMany({
+    where,
     take: limit,
     orderBy: [{ jurisdiction: "asc" }, { name: "asc" }],
     select: {

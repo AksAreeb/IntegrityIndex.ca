@@ -1,8 +1,6 @@
-import {
-  getMemberPhotoUrl as getFederalPhotoUrl,
-  getMemberPhotoUrl44,
-} from "@/lib/scrapers/ciecScraper";
+import { getMemberPhotoUrl44 } from "@/lib/scrapers/ciecScraper";
 
+const FEDERAL_MEMBER_PHOTOS_BASE = "https://www.ourcommons.ca/Member-Photos";
 const OLA_MPP_PHOTO_BASE =
   "https://www.ola.org/sites/default/files/styles/mpp_profile/public/mpp-photos";
 
@@ -10,12 +8,14 @@ export interface MemberForPhoto {
   id: string;
   jurisdiction: string;
   photoUrl?: string | null;
+  /** Federal: House of Commons official ID (for Member-Photos URL). */
+  officialId?: string | null;
 }
 
 /**
  * Returns the primary photo URL for a member.
- * Federal: 45th Parliament URL (caller should use 44th on 404).
- * Provincial (MPP): OLA image CDN using member id as slug.
+ * Federal: https://www.ourcommons.ca/Member-Photos/[MemberID].jpg (using officialId or id).
+ * Provincial (MPP): Use stored photoUrl (from OpenNorth image field when available), else OLA CDN by slug.
  */
 export function getMemberPhotoUrl(member: MemberForPhoto): string {
   if (member.photoUrl?.trim()) return member.photoUrl.trim();
@@ -23,19 +23,20 @@ export function getMemberPhotoUrl(member: MemberForPhoto): string {
     const slug = member.id.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
     return `${OLA_MPP_PHOTO_BASE}/${encodeURIComponent(slug)}.jpg`;
   }
-  return getFederalPhotoUrl(member.id);
+  const memberId = (member.officialId ?? member.id).trim();
+  return `${FEDERAL_MEMBER_PHOTOS_BASE}/${encodeURIComponent(memberId)}.jpg`;
 }
 
 /**
- * Returns the 44th Parliament fallback URL for a federal MP (use when 45th returns 404).
+ * Federal fallback: 44th Parliament OfficialMpPhotos (when Member-Photos 404s).
  */
 export function getFederalPhotoFallbackUrl(memberId: string): string {
   return getMemberPhotoUrl44(memberId);
 }
 
 /**
- * Returns true if the given URL is a federal 45th Parliament photo (so we can fallback to 44th on error).
+ * True if URL is the Member-Photos path (so we can try 44th fallback on error).
  */
-export function isFederal45PhotoUrl(url: string): boolean {
-  return url.includes("OfficialMpPhotos/45");
+export function isFederalMemberPhotosUrl(url: string): boolean {
+  return url.includes("Member-Photos/");
 }

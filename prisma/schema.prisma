@@ -32,6 +32,7 @@ model Disclosure {
   sourceUrl      String?   // 2026: source URL for verification
   memberId       String
   disclosureDate DateTime?
+  createdAt      DateTime  @default(now()) // when record was filed in our system (for integrity rank)
   member         Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 

@@ -29,10 +29,10 @@ export default function Error({
             Try again
           </button>
           <Link
-            href="/dashboard"
+            href="/"
             className="px-5 py-2.5 border border-[#E2E8F0] text-[#0F172A] font-sans text-sm font-medium rounded-[4px] hover:bg-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-[#0F172A] focus:ring-offset-2"
           >
-            Back to Dashboard
+            Back to home
           </Link>
         </div>
       </div>

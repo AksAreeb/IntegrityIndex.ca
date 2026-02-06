@@ -1,5 +1,5 @@
 import { getMemberByRidingId } from "@/lib/member-service";
-import { getMemberProfile } from "@/lib/mock-data";
+import { getMemberProfile } from "@/lib/fallback-data";
 import { getKeyVoteBillNumbers } from "@/lib/api/legisinfo";
 import { AppShell } from "@/components/AppShell";
 import { MemberProfileView } from "@/components/member-profile/MemberProfileView";

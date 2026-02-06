@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useOptimistic, useCallback, useEffect, useRef } from "react";
+import { useTransition, useOptimistic, useCallback, useEffect, useRef, useId } from "react";
 
 export interface SearchInputProps {
   value: string;
@@ -10,6 +10,8 @@ export interface SearchInputProps {
   "aria-label"?: string;
   /** Debounce ms for live search on change; 0 = only on Search/Enter */
   debounceMs?: number;
+  /** Optional stable ID for the input (prevents focus loss on re-render) */
+  id?: string;
 }
 
 /** Search input using useTransition + useOptimistic (2026 patterns) to prevent UI lag.
@@ -21,7 +23,10 @@ export function SearchInput({
   placeholder = "Search by name or riding...",
   "aria-label": ariaLabel = "Search members",
   debounceMs = 300,
+  id: providedId,
 }: SearchInputProps) {
+  const generatedId = useId();
+  const inputId = providedId ?? generatedId;
   const [isPending, startTransition] = useTransition();
   const [optimisticPending, addOptimistic] = useOptimistic(
     isPending,
@@ -71,6 +76,7 @@ export function SearchInput({
   return (
     <div className="relative flex gap-2">
       <input
+        id={inputId}
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}

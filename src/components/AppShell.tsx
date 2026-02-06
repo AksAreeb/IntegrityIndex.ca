@@ -24,7 +24,6 @@ const StockTicker = dynamic(() => import("./StockTicker").then((mod) => mod.Stoc
 const NAV_ITEMS = [
   { label: "Home", href: "/" },
   { label: "Members", href: "/members" },
-  { label: "Representatives", href: "/mps" },
   { label: "Map", href: "/explore" },
   { label: "Legislation", href: "/legislation" },
   { label: "Analytics", href: "/analytics" },

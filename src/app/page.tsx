@@ -3,57 +3,58 @@ import { AppShell } from "@/components/AppShell";
 import { CommandKSearchBar } from "@/components/CommandKSearchBar";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 const MISSION_ITEMS = [
   {
-    title: "Institutional Data",
-    subtitle: "Sourced from CIEC",
-    body: "Scrubbed primary data sourced directly from the CIEC and LEGISinfo. No third-party commentary.",
+    title: "Direct Federal Sourcing",
+    subtitle: "We pull directly from Parliament's Ethics Commissioner",
+    body: "All data comes directly from official government sources. No third-party commentary or interpretation—just the facts as reported by Parliament's Ethics Commissioner.",
   },
   {
-    title: "Open-Source Audit",
-    subtitle: "Logic via GitHub",
-    body: "Non-partisan, open-source algorithms for interest correlation. Every calculation is peer-reviewable.",
+    title: "Open Source Transparency",
+    subtitle: "Our code is public and verified by the community",
+    body: "Every calculation is open source and peer-reviewable. Anyone can verify our methodology and see exactly how we assess parliamentary accountability.",
   },
   {
-    title: "Universal Access",
-    subtitle: "WCAG 2.1",
-    body: "Optimized for WCAG 2.1 accessibility. Democracy is only transparent if everyone can see it.",
+    title: "Accessibility First",
+    subtitle: "Designed to be usable by every Canadian citizen",
+    body: "Democracy is only transparent if everyone can access it. We've built this platform to be usable by every Canadian, regardless of technical ability.",
   },
 ] as const;
 
 export default async function Home() {
   let liveStats: { label: string; value: string }[] = [
-    { label: "Profiles Active", value: "—" },
     { label: "Trade Volume", value: "—" },
-    { label: "Data Sourcing", value: "100% CIEC & LEGISinfo Verified." },
   ];
-  let recentProfiles: { id: string; name: string; riding: string }[] = [];
+  let recentProfiles: { id: string; name: string; riding: string; updatedAt: Date }[] = [];
 
   try {
-    const [memberCounts, tradeCount, recentTrades] = await Promise.all([
-      prisma.member.groupBy({ by: ["jurisdiction"], _count: true }),
+    const [tradeCount, recentDisclosures] = await Promise.all([
       prisma.tradeTicker.count(),
-      prisma.tradeTicker.findMany({
-        take: 24,
-        orderBy: { date: "desc" },
-        select: { memberId: true },
+      prisma.disclosure.findMany({
+        take: 5,
+        orderBy: { createdAt: "desc" },
+        select: {
+          memberId: true,
+          createdAt: true,
+          member: {
+            select: { id: true, name: true, riding: true },
+          },
+        },
       }),
     ]);
-    const federal = memberCounts.find((c) => c.jurisdiction === "FEDERAL")?._count ?? 0;
-    const provincial = memberCounts.find((c) => c.jurisdiction === "PROVINCIAL")?._count ?? 0;
     liveStats = [
-      { label: "Profiles Active", value: `${federal} MPs | ${provincial} MPPs` },
       { label: "Trade Volume", value: `${tradeCount} Recent Disclosures.` },
-      { label: "Data Sourcing", value: "100% CIEC & LEGISinfo Verified." },
     ];
-    const orderedIds = [...new Set(recentTrades.map((t) => t.memberId))].slice(0, 6);
-    if (orderedIds.length > 0) {
-      const members = await prisma.member.findMany({
-        where: { id: { in: orderedIds } },
-        select: { id: true, name: true, riding: true },
-      });
-      recentProfiles = orderedIds.map((id) => members.find((m) => m.id === id)).filter(Boolean) as { id: string; name: string; riding: string }[];
-    }
+    recentProfiles = recentDisclosures
+      .map((d) => ({
+        id: d.member.id,
+        name: d.member.name,
+        riding: d.member.riding,
+        updatedAt: d.createdAt,
+      }))
+      .filter((p) => p.id && p.name);
   } catch (e) {
     console.error("[page]: live stats fetch failed", e);
     // leave defaults
@@ -96,7 +97,7 @@ export default async function Home() {
             </div>
           </section>
 
-          {/* Live Stats / Sourced Metrics */}
+          {/* Live Stats */}
           <section
             className="px-6 py-12 md:py-16 border-b border-slate-200"
             aria-labelledby="live-stats-heading"
@@ -104,7 +105,7 @@ export default async function Home() {
             <h2 id="live-stats-heading" className="sr-only">
               Live Stats
             </h2>
-            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-1 gap-6">
               {liveStats.map((card) => (
                 <article
                   key={card.label}
@@ -160,7 +161,7 @@ export default async function Home() {
             </div>
           </section>
 
-          {/* Recently Updated Profiles (live: by most recent trade activity) */}
+          {/* Recently Updated Profiles (from disclosures) */}
           <section
             className="px-6 py-20 md:py-24 border-b border-slate-200"
             aria-labelledby="recent-profiles-heading"
@@ -171,19 +172,19 @@ export default async function Home() {
             >
               Recently Updated Profiles
             </h2>
-            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-6">
               {recentProfiles.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-[#64748B] font-sans">
-                  <p>No recent trade activity yet. Run seed or sync to populate.</p>
-                  <Link href="/mps" className="mt-2 inline-block text-sm font-medium text-[#0F172A] hover:underline">
+                  <p>No recent disclosure updates yet. Run seed or sync to populate.</p>
+                  <Link href="/members" className="mt-2 inline-block text-sm font-medium text-[#0F172A] hover:underline">
                     Browse all representatives
                   </Link>
                 </div>
               ) : (
-                recentProfiles.slice(0, 3).map((profile) => (
+                recentProfiles.map((profile) => (
                   <Link
                     key={profile.id}
-                    href={`/mps/${encodeURIComponent(profile.id)}`}
+                    href={`/member/${encodeURIComponent(profile.id)}`}
                     className="block p-6 border border-slate-200 bg-[#FFFFFF] rounded-none shadow-none hover:border-[#0F172A]/30 transition-colors text-left"
                     aria-label={`View profile for ${profile.name}, ${profile.riding}`}
                   >
@@ -192,6 +193,12 @@ export default async function Home() {
                     </p>
                     <p className="text-sm text-[#0F172A]/80 font-sans mb-3">
                       {profile.riding}
+                    </p>
+                    <p className="text-xs text-[#64748B] font-sans mb-3">
+                      Updated {new Date(profile.updatedAt).toLocaleDateString("en-CA", {
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </p>
                     <span
                       className="inline-block px-3 py-1 text-xs font-sans font-semibold bg-[#0F172A] text-[#FFFFFF] rounded-none"

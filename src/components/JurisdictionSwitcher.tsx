@@ -8,7 +8,7 @@ export function JurisdictionSwitcher() {
   return (
     <nav
       role="navigation"
-      aria-label="Jurisdiction switcher"
+      aria-label="Jurisdiction switcher — filters Members directory and search"
       className="flex items-center gap-1 border border-[#E2E8F0] rounded-[4px] p-0.5 bg-[#FFFFFF]"
     >
       <JurisdictionButton
@@ -24,7 +24,7 @@ export function JurisdictionSwitcher() {
         label="Provincial (MPPs)"
       />
       <span className="sr-only" aria-live="polite">
-        Current jurisdiction: {jurisdiction}
+        Current jurisdiction: {jurisdiction}. Members list and search are filtered by this selection.
       </span>
     </nav>
   );

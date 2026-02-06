@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Serif, Inter } from "next/font/google";
 import { JurisdictionProvider } from "@/contexts/JurisdictionContext";
 import { logger } from "@/lib/logger";
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const ibmPlexSerif = IBM_Plex_Serif({
@@ -41,6 +41,7 @@ export default function RootLayout({
     <html lang="en" className={`${ibmPlexSerif.variable} ${inter.variable}`}>
       <body className="antialiased font-sans bg-[#FFFFFF] text-[#0F172A]">
         <JurisdictionProvider>{children}</JurisdictionProvider>
+        <Analytics debug={true} />
       </body>
     </html>
   );

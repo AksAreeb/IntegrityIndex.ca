@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { getLinkedTickers, getSectorImpact } from "@/lib/bill-sectors";
-import type { BillSummary } from "@/lib/mock-data";
+import type { BillSummary } from "@/lib/fallback-data";
 
 /** Minimal fallback when getBillSummary returns undefined; has plainLanguage only */
 type BillSummaryFallback = { plainLanguage: string };

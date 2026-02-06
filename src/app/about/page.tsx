@@ -11,16 +11,46 @@ const PENALTIES = [
 export default function AboutPage() {
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto px-6 py-10">
-        <h1 className="font-serif text-3xl font-semibold text-[#0F172A] mb-2">
-          About the Integrity Score
-        </h1>
-        <p className="text-[#64748B] font-sans mb-8">
-          A simple, transparent way to see how we assess parliamentary accountability.
-        </p>
+      <div className="max-w-6xl mx-auto px-6 py-20 md:py-24">
+        <div className="mb-12 text-center">
+          <h1 className="font-serif text-3xl md:text-4xl font-bold text-[#0F172A] mb-4">
+            About the Integrity Score
+          </h1>
+          <p className="text-lg text-[#64748B] font-sans max-w-3xl mx-auto">
+            A simple, transparent way to see how we assess parliamentary accountability.
+          </p>
+        </div>
+
+        {/* Mission Statement - Multi-column layout */}
+        <section className="mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <div>
+              <h2 className="font-serif text-2xl font-semibold text-[#0F172A] mb-4">
+                Our Mission
+              </h2>
+              <p className="text-base text-[#0F172A] leading-relaxed mb-4">
+                IntegrityIndex.ca provides Canadians with transparent, accessible information about their elected representatives' financial interests and potential conflicts of interest.
+              </p>
+              <p className="text-base text-[#64748B] leading-relaxed">
+                We believe that democracy works best when citizens have the tools to hold their representatives accountable. Our Integrity Score is one way to help voters understand how their MP or MPP's financial activities might intersect with their legislative work.
+              </p>
+            </div>
+            <div>
+              <h2 className="font-serif text-2xl font-semibold text-[#0F172A] mb-4">
+                How It Works
+              </h2>
+              <p className="text-base text-[#0F172A] leading-relaxed mb-4">
+                Every member starts with a score of 100. We subtract points for four types of risk factors: trade volume, sector conflicts, late filings, and legislative proximity to personal investments.
+              </p>
+              <p className="text-base text-[#64748B] leading-relaxed">
+                The result is a 0–100 Integrity Score with a letter grade (A–F). This score is for transparency only and is not a legal or official finding.
+              </p>
+            </div>
+          </div>
+        </section>
 
         {/* Formula: LaTeX-style metric block */}
-        <div className="border-2 border-[#0F172A] rounded-[4px] overflow-hidden mb-10 bg-white">
+        <div className="border-2 border-[#0F172A] rounded-[4px] overflow-hidden mb-12 bg-white">
           <h2 className="font-serif text-xl font-semibold text-[#0F172A] px-6 pt-6 pb-2">
             The Formula
           </h2>
@@ -38,21 +68,21 @@ export default function AboutPage() {
               </p>
             </div>
           </div>
-          <p className="font-sans text-sm text-[#64748B] px-6 pb-4">
+          <p className="font-sans text-base text-[#64748B] px-6 pb-6">
             Every member starts at 100. We subtract points for four types of risk. The result is a 0–100 Integrity Score and a letter grade (A–F).
           </p>
 
           {/* Health Gauge: 100 is the goal */}
-          <div className="px-6 pb-4">
-            <h3 className="font-serif text-sm font-semibold text-[#0F172A] mb-2">Health Gauge</h3>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm font-bold text-[#0F172A] bg-[#F1F5F9] px-2 py-1 rounded">100</span>
-              <span className="text-sm text-[#64748B]">= goal (no deductions).</span>
-              <span className="text-sm text-[#64748B]">Each penalty reduces the score:</span>
+          <div className="px-6 pb-6 border-t border-[#E2E8F0]">
+            <h3 className="font-serif text-lg font-semibold text-[#0F172A] mb-3">Health Gauge</h3>
+            <div className="flex items-center gap-2 flex-wrap mb-3">
+              <span className="font-mono text-sm font-bold text-[#0F172A] bg-[#F1F5F9] px-3 py-1.5 rounded">100</span>
+              <span className="text-base text-[#64748B]">= goal (no deductions).</span>
             </div>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm font-mono text-[#0F172A]">
+            <p className="text-sm text-[#64748B] mb-3">Each penalty reduces the score:</p>
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-mono text-[#0F172A]">
               {PENALTIES.map((p) => (
-                <span key={p.code}>{p.code}: {p.math}</span>
+                <span key={p.code} className="bg-[#F8FAFC] px-3 py-1 rounded">{p.code}: {p.math}</span>
               ))}
             </div>
           </div>
@@ -60,13 +90,13 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border-t border-[#E2E8F0]" aria-label="Penalty list">
             {PENALTIES.map((p) => (
               <div key={p.code} className="p-6 border-b border-[#E2E8F0] md:odd:border-r md:border-b last:border-b-0 md:last:border-b-0 md:[&:nth-last-child(-n+2)]:border-b-0">
-                <h3 className="font-serif font-semibold text-[#0F172A]">
+                <h3 className="font-serif text-lg font-semibold text-[#0F172A] mb-2">
                   {p.code} — {p.name}
                 </h3>
-                <p className="font-sans text-sm text-[#0F172A] mt-0.5">
+                <p className="font-sans text-base text-[#0F172A] mb-2">
                   <strong>{p.deduction}</strong>
                 </p>
-                <p className="font-sans text-sm text-[#64748B] mt-1">
+                <p className="font-sans text-sm text-[#64748B] leading-relaxed">
                   Why it matters: {p.why}
                 </p>
               </div>
@@ -74,14 +104,36 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <p className="text-sm text-[#64748B] font-sans mb-6">
-          This is version 1 of our methodology. We built it to be easy to understand for Canadian voters. Data comes from the Conflict of Interest and Ethics Commissioner, LEGISinfo, and other public sources. Grades are for transparency only and are not a legal or official finding.
-        </p>
+        {/* Data Sources and Methodology */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          <div>
+            <h2 className="font-serif text-xl font-semibold text-[#0F172A] mb-4">
+              Data Sources
+            </h2>
+            <p className="text-base text-[#64748B] leading-relaxed mb-4">
+              All data comes directly from official government sources:
+            </p>
+            <ul className="text-sm text-[#64748B] font-sans space-y-2 list-disc list-inside">
+              <li>Conflict of Interest and Ethics Commissioner (CIEC)</li>
+              <li>LEGISinfo (Parliament of Canada)</li>
+              <li>House of Commons Member Directory</li>
+              <li>Ontario Legislative Assembly</li>
+            </ul>
+          </div>
+          <div>
+            <h2 className="font-serif text-xl font-semibold text-[#0F172A] mb-4">
+              Legal Notice
+            </h2>
+            <p className="text-base text-[#64748B] leading-relaxed">
+              This is version 1 of our methodology. We built it to be easy to understand for Canadian voters. Grades are for transparency only and are not a legal or official finding.
+            </p>
+          </div>
+        </div>
 
         {/* Sources footer */}
-        <footer className="border-t border-[#E2E8F0] pt-6 mb-8">
-          <h3 className="font-serif text-sm font-semibold text-[#0F172A] mb-2">Sources</h3>
-          <ul className="text-sm text-[#64748B] font-sans space-y-1 list-disc list-inside">
+        <footer className="border-t border-[#E2E8F0] pt-8 mb-8">
+          <h3 className="font-serif text-lg font-semibold text-[#0F172A] mb-4">References</h3>
+          <ul className="text-sm text-[#64748B] font-sans space-y-2 list-disc list-inside">
             <li>Conflict of Interest Act (S.C. 2006, c. 9, s. 2)</li>
             <li>OECD Public Integrity Handbook (2020)</li>
           </ul>
@@ -89,7 +141,7 @@ export default function AboutPage() {
 
         <Link
           href="/"
-          className="inline-block font-sans text-sm font-medium text-[#0F172A] hover:underline"
+          className="inline-block font-sans text-base font-medium text-[#0F172A] hover:underline"
         >
           ← Back to home
         </Link>

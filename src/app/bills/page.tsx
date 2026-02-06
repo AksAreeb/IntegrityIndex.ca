@@ -2,7 +2,7 @@ import { AppShell } from "@/components/AppShell";
 import { BillCardList } from "./BillCardList";
 import { BillsDataTable } from "./BillsDataTable";
 import { prisma } from "@/lib/db";
-import { getBillSummary } from "@/lib/mock-data";
+import { getBillSummary } from "@/lib/fallback-data";
 import { getLinkedTickers, getSectorImpact } from "@/lib/bill-sectors";
 import { getContextualBillSummary } from "@/lib/bills";
 import { fetchLegisinfoBillsApi, isKeyVoteBill } from "@/lib/api/legisinfo";

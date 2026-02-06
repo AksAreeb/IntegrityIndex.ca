@@ -1,9 +1,9 @@
 {
-  "buildCommand": "prisma generate && next build",
+  "buildCommand": "prisma generate && next build && node scripts/trigger-sync.js",
   "crons": [
     {
       "path": "/api/cron/sync",
-      "schedule": "0 6 * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }

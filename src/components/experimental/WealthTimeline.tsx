@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import * as Slider from "@radix-ui/react-slider";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import type { Asset } from "@/lib/mock-data";
+import type { Asset } from "@/types";
 
 const MARKET_BENCHMARK_DATA = [
   { period: "Pre-office", value: 100, benchmark: 100 },

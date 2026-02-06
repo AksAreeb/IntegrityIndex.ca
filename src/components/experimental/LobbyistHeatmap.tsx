@@ -10,7 +10,7 @@ import {
   Tooltip,
   Cell,
 } from "recharts";
-import { LOBBYIST_HEATMAP_DATA } from "@/lib/mock-data";
+import { LOBBYIST_HEATMAP_DATA } from "@/lib/fallback-data";
 
 export function LobbyistHeatmap() {
   const [viewAsTable, setViewAsTable] = useState(false);
