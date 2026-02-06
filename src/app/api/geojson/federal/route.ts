@@ -46,6 +46,7 @@ export async function GET() {
               ...f.properties,
               ridingName: name,
               ridingId,
+              ENNAME: name,
             },
           };
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Asset } from "@/lib/mock-data";
+import type { Asset } from "@/types";
 
 interface Props {
   assets: Asset[];

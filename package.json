@@ -13,6 +13,7 @@
     "sync": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/sync.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slider": "^1.2.0",
@@ -20,6 +21,7 @@
     "axios": "^1.13.4",
     "cheerio": "^1.2.0",
     "next": "^16.1.6",
+    "pg": "^8.18.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-simple-maps": "^1.0.0",
@@ -29,6 +31,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/node": "^22",
+    "@types/pg": "^8.16.0",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.20",

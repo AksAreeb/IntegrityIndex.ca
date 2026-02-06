@@ -1,49 +1,18 @@
 /**
  * Mock data layer for IntegrityIndex.ca
- * Realistic names and bill references for layout testing
+ * Realistic names and bill references for layout testing.
+ * Types are defined in @/types; re-exported here for backward compatibility.
  */
 
-export type Jurisdiction = "FEDERAL" | "PROVINCIAL";
+import type {
+  Jurisdiction,
+  MemberProfile,
+  Asset,
+  VoteRecord,
+  IndustryShare,
+} from "@/types";
 
-export interface MemberProfile {
-  id: string;
-  name: string;
-  riding: string;
-  jurisdiction: Jurisdiction;
-  party: string;
-  executiveSummary: {
-    attendancePercent: number;
-    integrityScore: number;
-  };
-  assets: Asset[];
-  legislativeHistory: VoteRecord[];
-  industryDistribution: IndustryShare[];
-  preOfficeAssets: Asset[];
-}
-
-export interface Asset {
-  id: string;
-  type: "Stocks" | "Real Estate" | "Trusts" | "Other";
-  description: string;
-  industryTags: string[];
-  estimatedValue?: string;
-  disclosureDate: string;
-}
-
-export interface VoteRecord {
-  id: string;
-  billId: string;
-  billTitle: string;
-  vote: "Yea" | "Nay" | "Abstained";
-  date: string;
-  outcome: string;
-}
-
-export interface IndustryShare {
-  sector: string;
-  percentage: number;
-  value: number;
-}
+export type { Jurisdiction, MemberProfile, Asset, VoteRecord, IndustryShare };
 
 export interface LobbyistMeeting {
   industry: string;
@@ -167,12 +136,12 @@ export function getMemberProfile(ridingId: string): MemberProfile {
     jurisdiction,
     party: jurisdiction === "FEDERAL" ? "Liberal" : "Progressive Conservative",
     executiveSummary: {
-      attendancePercent: 87 + (nameIndex % 12),
-      integrityScore: 62 + (nameIndex % 35),
+      attendancePercent: 0,
+      integrityScore: 0,
     },
     assets: generateAssets(6, id),
-    legislativeHistory: generateVotes(id, jurisdiction),
-    industryDistribution: generateIndustryDistribution(),
+    legislativeHistory: [],
+    industryDistribution: [],
     preOfficeAssets: generateAssets(4, `${id}-pre`),
   };
 }
@@ -214,7 +183,7 @@ export const BILL_SUMMARIES: BillSummary[] = [
       "Ontario legislation aimed at accelerating housing development by reducing development charges, limiting municipal review powers, and changing conservation authority roles.",
     publicInterestPoints: [
       "Intended to increase housing supply and affordability",
-      "Streamlines approval processes for new construction",
+      "Simplifies approval processes for new construction",
       "Exempts some affordable housing from development fees",
     ],
     corporateInterestPoints: [

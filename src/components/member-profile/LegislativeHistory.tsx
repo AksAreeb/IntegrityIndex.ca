@@ -1,6 +1,6 @@
 "use client";
 
-import type { VoteRecord } from "@/lib/mock-data";
+import type { VoteRecord } from "@/types";
 
 interface Props {
   votes: VoteRecord[];

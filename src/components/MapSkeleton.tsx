@@ -1,7 +1,7 @@
 export function MapSkeleton() {
   return (
     <div
-      className="w-full h-full min-h-[400px] bg-[#F1F5F9] animate-pulse rounded-[4px] flex items-center justify-center"
+      className="w-full h-full min-h-[280px] bg-[#F1F5F9] animate-pulse rounded-[4px] flex items-center justify-center"
       role="status"
       aria-label="Map loading"
     >

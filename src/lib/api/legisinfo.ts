@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 
 const LEGISINFO_OVERVIEW_XML =
   "https://www.parl.ca/legisinfo/en/overview/xml";
+const LEGISINFO_BILLS_API =
+  "https://www.parl.ca/legisinfo/en/api/v1/bills?parliaments=45";
 
 export interface LegisinfoBill {
   number: string;
@@ -102,6 +104,35 @@ export async function fetchLegisinfoOverview(): Promise<LegisinfoBill[]> {
   }
 
   return bills;
+}
+
+/**
+ * Fetches bills from LEGISinfo API v1 (45th Parliament). Uses defensive parser from @/lib/bills.
+ */
+export async function fetchLegisinfoBillsApi(): Promise<LegisinfoBill[]> {
+  try {
+    const { data } = await axios.get<unknown>(LEGISINFO_BILLS_API, {
+      timeout: 15000,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; IntegrityIndex/1.0; +https://integrityindex.ca)",
+        Accept: "application/json",
+      },
+      validateStatus: (s) => s >= 200 && s < 400,
+    });
+    const { parseBillsFromLegisinfoResponse } = await import("@/lib/bills");
+    const parsed = parseBillsFromLegisinfoResponse(data);
+    if (parsed.length > 0) {
+      return parsed.map((b) => ({
+        number: b.number,
+        status: b.status,
+        title: b.title,
+        isKeyVote: b.isKeyVote ?? isKeyVoteBill(b.number),
+      }));
+    }
+    return fetchLegisinfoOverview();
+  } catch {
+    return fetchLegisinfoOverview();
+  }
 }
 
 /**

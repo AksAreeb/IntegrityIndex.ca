@@ -1,20 +1,62 @@
 "use client";
 
-import React, { memo, useCallback, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 import { useRouter } from "next/navigation";
 import { MapSkeleton } from "./MapSkeleton";
 import { getRidingInfo } from "@/lib/riding-data";
 import type { OversightMode } from "@/lib/riding-data";
 
-const FEDERAL_URL = "/api/geojson/federal";
+const FEDERAL_URL =
+  "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/canada-electoral-districts.geojson";
 const ONTARIO_URL = "/api/geojson/ontario";
 
 interface GovernanceMapProps {
   mode: OversightMode;
 }
 
+type GeoFeature = {
+  properties?: { ridingId?: string; ridingName?: string; ENNAME?: string };
+  rsmKey?: string;
+};
+
+const MemoizedGeography = memo(function MemoizedGeography({
+  geo,
+  isHovered,
+  onMouseEnter,
+  onMouseMove,
+  onMouseLeave,
+  onClick,
+}: {
+  geo: GeoFeature;
+  isHovered: boolean;
+  onMouseEnter: (e: React.MouseEvent<SVGPathElement>, g: GeoFeature) => void;
+  onMouseMove: (e: React.MouseEvent<SVGPathElement>) => void;
+  onMouseLeave: () => void;
+  onClick: (e: React.MouseEvent, g: GeoFeature) => void;
+}) {
+  return (
+    <Geography
+      geography={geo}
+      fill={isHovered ? "#E2E8F0" : "#F1F5F9"}
+      stroke={isHovered ? "#0f172a" : "#cbd5e1"}
+      strokeWidth={isHovered ? 2 : 0.5}
+      className="transition-[fill,stroke] duration-150 ease-out"
+      style={{
+        default: { outline: "none", cursor: "pointer" },
+        hover: { outline: "none", cursor: "pointer" },
+        pressed: { outline: "none", cursor: "pointer" },
+      }}
+      onMouseEnter={(e) => onMouseEnter(e, geo)}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      onClick={(e) => onClick(e, geo)}
+    />
+  );
+});
+
 function GovernanceMapInner({ mode }: GovernanceMapProps) {
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<{
@@ -38,23 +80,39 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
   const [error, setError] = useState<string | null>(null);
   const [clickLoading, setClickLoading] = useState(false);
 
-  const url = mode === "federal" ? FEDERAL_URL : ONTARIO_URL;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  React.useEffect(() => {
+  const isFederal = mode === "federal";
+
+  useEffect(() => {
+    if (!mounted) return;
     setLoading(true);
     setError(null);
+    const url = isFederal ? FEDERAL_URL_PRIMARY : ONTARIO_URL;
     fetch(url)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         if (data.error) throw new Error(data.error);
-        setGeoData(data);
+        const normalized = isFederal ? normalizeGeoJson(data) : data;
+        if (!normalized.features?.length && isFederal) {
+          return fetch(FEDERAL_URL_FALLBACK)
+            .then((r2) => (r2.ok ? r2.json() : Promise.reject(new Error("Fallback failed"))))
+            .then((fallback) => normalizeGeoJson(fallback));
+        }
+        return normalized;
       })
+      .then(setGeoData)
       .catch(() => setError("Failed to load map"))
       .finally(() => setLoading(false));
-  }, [url]);
+  }, [mounted, isFederal]);
 
   const handleMouseEnter = useCallback(
-    (evt: React.MouseEvent<SVGPathElement>, geo: { properties?: { ridingId?: string; ridingName?: string }; rsmKey?: string }) => {
+    (evt: React.MouseEvent<SVGPathElement>, geo: GeoFeature) => {
       const rid = geo.properties?.ridingId ?? "unknown";
       const info = getRidingInfo(rid);
       setHoveredId(rid);
@@ -72,10 +130,9 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
 
   const handleMouseMove = useCallback(
     (evt: React.MouseEvent<SVGPathElement>) => {
-      if (tooltip)
-        setTooltip((t) => (t ? { ...t, x: evt.clientX, y: evt.clientY } : null));
+      setTooltip((t) => (t ? { ...t, x: evt.clientX, y: evt.clientY } : null));
     },
-    [tooltip]
+    []
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -84,39 +141,44 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
   }, []);
 
   const handleClick = useCallback(
-    async (_evt: React.MouseEvent, geo: { properties?: { ridingId?: string }; rsmKey?: string }) => {
-      const rid = geo.properties?.ridingId ?? "unknown";
+    (_evt: React.MouseEvent, geo: GeoFeature) => {
+      const enname =
+        (geo.properties?.ENNAME as string) ??
+        (geo.properties?.ridingName as string) ??
+        geo.properties?.ridingId ??
+        "unknown";
       setClickLoading(true);
-      try {
-        const res = await fetch(`/api/member/by-riding?ridingId=${encodeURIComponent(rid)}`);
-        const data = res.ok ? await res.json() : null;
-        const memberId = data?.id ?? rid;
-        router.push(`/mps/${memberId}`);
-      } catch {
-        router.push(`/mps/${rid}`);
-      } finally {
-        setClickLoading(false);
-      }
+      router.push(`/mps/${encodeURIComponent(String(enname))}`);
+      setClickLoading(false);
     },
     [router]
   );
 
+  if (!mounted) {
+    return null;
+  }
+
   if (loading) return <MapSkeleton />;
   if (error || !geoData) {
     return (
-      <div className="w-full min-h-[400px] bg-[#F1F5F9] flex items-center justify-center rounded-[4px]">
+      <div className="w-full aspect-[16/10] min-h-[400px] bg-[#F1F5F9] flex items-center justify-center rounded-[4px]">
         <p className="text-[#64748B]">{error ?? "No data"}</p>
       </div>
     );
   }
 
-  const isFederal = mode === "federal";
+  // Lambert Conformal Conic for Canada: standard parallels 49°N and 77°N, central meridian ~96°W
   const projectionConfig = isFederal
-    ? { scale: 400, center: [-96, 62] as [number, number] }
+    ? {
+        scale: 600,
+        center: [-96, 62] as [number, number],
+        parallels: [49, 77] as [number, number],
+        rotate: [-96, 0, 0] as [number, number, number],
+      }
     : { scale: 2500, center: [-79.4, 43.7] as [number, number] };
 
   return (
-    <div className="relative w-full h-full min-h-[400px]">
+    <div className="relative w-full h-full min-h-0 rounded-[4px]">
       {clickLoading && (
         <div
           className="absolute inset-0 z-40 flex items-center justify-center bg-[#F1F5F9]/80 rounded-[4px]"
@@ -129,39 +191,28 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
         </div>
       )}
       <ComposableMap
-        projection="geoMercator"
+        projection={isFederal ? "geoConicConformal" : "geoMercator"}
         projectionConfig={projectionConfig}
-        className="w-full h-full min-h-[400px] rounded-[4px]"
+        className="w-full h-full rounded-[4px]"
         style={{ backgroundColor: "#F1F5F9" }}
       >
         <Geographies geography={geoData}>
           {({ geographies }) =>
-            geographies.map((geo: { properties?: { ridingId?: string }; rsmKey?: string }) => {
-              const rid = geo.properties?.ridingId ?? "unknown";
-              const isHovered = hoveredId === rid;
-              return (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill="#F1F5F9"
-                  stroke={isHovered ? "#0f172a" : "#cbd5e1"}
-                  strokeWidth={isHovered ? 2 : 0.5}
-                  style={{
-                    default: { outline: "none", cursor: "pointer" },
-                    hover: { outline: "none", cursor: "pointer" },
-                    pressed: { outline: "none", cursor: "pointer" },
-                  }}
-                  onMouseEnter={(e) => handleMouseEnter(e, geo)}
-                  onMouseMove={handleMouseMove}
-                  onMouseLeave={handleMouseLeave}
-                  onClick={(e) => handleClick(e, geo)}
-                />
-              );
-            })
+            (geographies as GeoFeature[]).map((geo) => (
+              <MemoizedGeography
+                key={geo.rsmKey}
+                geo={geo}
+                isHovered={hoveredId === (geo.properties?.ridingId ?? "unknown")}
+                onMouseEnter={handleMouseEnter}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                onClick={handleClick}
+              />
+            ))
           }
         </Geographies>
       </ComposableMap>
-      {tooltip && (
+      {tooltip && typeof window !== "undefined" && (
         <div
           className="fixed z-50 pointer-events-none bg-white border border-[#0f172a]/10 shadow-lg px-4 py-3 rounded-[4px] max-w-[240px]"
           style={{

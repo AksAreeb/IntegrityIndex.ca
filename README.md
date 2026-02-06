@@ -1,13 +1,13 @@
 # IntegrityIndex.ca | National Transparency Framework
 
-**IntegrityIndex.ca** is a non-partisan, open-source civic-tech infrastructure designed to enhance democratic accountability in Canada. The platform provides a correlation engine between the financial disclosures of Members of Parliament and their legislative voting records.
+**IntegrityIndex.ca** is a non-partisan, open-source civic-tech project for parliamentary accountability in Canada. It links financial disclosures of Members of Parliament to legislative activity and bills.
 
 ---
 
 ## Project Overview
 
 ### Mission
-Provide every Canadian with crucial information on parliamentary accountability. Does your elected official campaign on a specific cause but financially benefit from the opposite? IntegrityIndex.ca makes this data accessible, transparent, and actionable.
+Give Canadians clear information on parliamentary accountability. The site shows whether an elected official’s disclosed assets overlap with bills they work on, and tracks disclosure filings and key votes.
 
 ---
 
@@ -15,13 +15,10 @@ Provide every Canadian with crucial information on parliamentary accountability.
 
 ### Platform Features
 
-1. **Representatives Directory** (`/mps`): Complete index of MPs and MPPs with individual profile pages
-2. **Integrity Map** (`/explore`): Interactive geospatial view showing riding-level accountability metrics
-3. **Legislation Feed** (`/bills`): Live tracking of parliamentary bills and voting patterns
-4. **Transparency Lab** (`/lab`): Experimental features including:
-   - Lobbyist Heatmap (Top industries meeting with government)
-   - Wealth Timeline (Net-worth trajectory visualization)
-   - Bill Simplifier (Plain-language summaries with public vs corporate interest analysis)
+1. **Representatives Directory** (`/mps`): Index of federal MPs and Ontario MPPs with profile pages (photo CDN: 45th Parliament / OLA).
+2. **Integrity Map** (`/explore`): Interactive map with riding-level data.
+3. **Legislation** (`/bills`, `/legislation`): Bills from the 45th Parliament (LEGISinfo API). Each bill has an Analysis toggle with a System Analysis summary and Stakeholder Warning when members hold stock in the bill’s sector.
+4. **Analytics** (`/analytics`): Wealth Timeline from disclosure filing dates and market snapshot from StockPriceCache; Lobbyist Heatmap (experimental).
 
 ### Data Pipelines
 
@@ -87,6 +84,33 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to view the app.
 
+### Database (Prisma 7 & Supabase)
+
+The app uses **PostgreSQL** (Supabase) with Prisma 7. In `.env` set:
+
+- `DATABASE_URL` — pooled connection (port **6543**) for the app
+- `DIRECT_URL` — direct connection (port **5432**) for migrations
+
+`prisma.config.ts` is the primary CLI config and must use `DIRECT_URL` so `prisma migrate dev` uses the direct port (avoids "Tenant Not Found" / pooler rejection).
+
+**First-time migration (Windows PowerShell):**
+
+```powershell
+# From repo root — clear legacy Prisma artifacts
+if (Test-Path "node_modules\.prisma") { Remove-Item -Recurse -Force "node_modules\.prisma" }
+if (Test-Path "src\generated") { Remove-Item -Recurse -Force "src\generated" }
+
+# Generate client and run initial migration
+npx prisma generate
+npx prisma migrate dev --name init_supabase
+```
+
+Or run the script:
+
+```powershell
+.\scripts\prisma-supabase-migrate.ps1
+```
+
 ### Building for Production
 
 ```bash
@@ -107,18 +131,13 @@ The platform supports both **Federal** (MPs) and **Provincial** (MPPs, currently
 
 ## Member Profile Structure
 
-Each representative's profile includes:
+Each representative’s profile includes:
 
-1. **Audit Summary:** Attendance % and Integrity Score (0-100)
-2. **Financial Ledger:** Detailed asset table with industry tags
-3. **Voting Record:** Chronological bill history with MP stance
-4. **Correlation Chart:** Visual asset distribution by sector
+1. **Member Audit:** Attendance and Integrity Score (0–100) from live data.
+2. **Financial Disclosures:** Table of disclosed assets from the database.
+3. **Conflict Warnings:** Bills that touch sectors where the member holds reported stock.
 
----
-
-## Mock Data
-
-All views currently use mock data from `src/lib/mock-data.ts`. Real data integration will occur when the 44th Parliament Audit is complete.
+Where the database has no matching record (e.g. executive summary text, legislative history), the UI may still use fallback content from `src/lib/mock-data.ts` until those sources are wired to real data.
 
 ---
 
@@ -147,4 +166,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
-© 2026 IntegrityIndex.ca | Facilitating a more transparent Canada.
+© 2026 IntegrityIndex.ca

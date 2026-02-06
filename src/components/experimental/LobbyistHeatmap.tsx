@@ -27,8 +27,11 @@ export function LobbyistHeatmap() {
       >
         Lobbyist Heatmap
       </h2>
-      <p className="text-sm text-[#64748B] mb-6">
+      <p className="text-sm text-[#64748B] mb-2">
         Top 10 Industries Meeting with Government this Week
+      </p>
+      <p className="text-xs text-[#94A3B8] mb-6" role="doc-tip">
+        <strong className="text-[#64748B]">High Sector Correlation:</strong> Member holds stock in the lobbying company&apos;s industry.
       </p>
 
       <div className="flex justify-end mb-4">

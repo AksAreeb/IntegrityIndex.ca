@@ -2,6 +2,32 @@ import axios from "axios";
 
 const FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote";
 
+/** Common Canadian ticker symbols to filter noise when extracting from disclosure text */
+const KNOWN_TICKERS = new Set([
+  "TD", "RY", "BNS", "BMO", "CM", "NA", "SHOP", "ENB", "TRP", "SU", "CNQ", "CNR", "CP", "CPG",
+  "AQN", "FTS", "EMA", "XIU", "XIC", "VCN", "VCE", "ZEB", "ZWB", "AAPL", "MSFT", "GOOGL", "AMZN",
+]);
+
+/**
+ * Extracts likely stock ticker symbols from disclosure/asset text (e.g. "TD Bank", "Shopify SHOP").
+ * Returns unique uppercase symbols, optionally filtered to known tickers only.
+ */
+export function extractTickerSymbolsFromText(
+  text: string,
+  onlyKnown = false
+): string[] {
+  const upper = (text ?? "").toUpperCase();
+  const matches = upper.matchAll(/\b([A-Z]{2,5})\b/g);
+  const seen = new Set<string>();
+  for (const m of matches) {
+    const sym = m[1];
+    if (sym.length >= 2 && (!onlyKnown || KNOWN_TICKERS.has(sym))) {
+      seen.add(sym);
+    }
+  }
+  return Array.from(seen);
+}
+
 export interface LiveStockPriceResult {
   currentPrice: number;
   dailyChange: number;

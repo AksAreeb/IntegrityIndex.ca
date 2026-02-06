@@ -1,20 +1,25 @@
 /**
- * Sync CLI — Fetches disclosures (CIEC) and bills (LEGISinfo) for 10 test MPs,
- * saves to Prisma. Run: npm run sync
+ * Sync CLI — Fetches disclosures (CIEC) and bills (LEGISinfo) for test MPs,
+ * updates StockPriceCache for tickers in disclosures, creates TradeTicker when disclosures change.
+ * Run: npm run sync
+ * Prisma 7: uses adapter-pg (same as seed).
  */
-try {
-  require("dotenv").config();
-} catch {
-  // dotenv optional if env vars set
-}
+import "dotenv/config";
+import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { scrapeCIEC } from "../src/lib/scrapers/ciecScraper";
 import {
   fetchLegisinfoOverview,
   syncBillsToDatabase,
 } from "../src/lib/api/legisinfo";
+import { getLiveStockPrice, extractTickerSymbolsFromText } from "../src/lib/api/stocks";
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DIRECT_URL or DATABASE_URL must be set");
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 /** 10 test MP IDs — use first 10 members from DB, or fallback to IDs 1–10 */
 const TEST_MP_LIMIT = 10;
@@ -43,21 +48,24 @@ async function main() {
   // ——— Step 1: CIEC — fetch disclosures for each test MP and save ———
   console.log("---------- Step 1: CIEC Scraper (disclosures) ----------\n");
 
+  const tickerSymbolsFromSync = new Set<string>();
+
   for (const mp of testMPs) {
     console.log(`[CIEC] Fetching disclosures for: ${mp.name} (${mp.riding}) [${mp.id}]...`);
 
     try {
-      const rows = await scrapeCIEC(mp.id);
+      const rows = await scrapeCIEC(mp.name);
       console.log(`[CIEC]   → Received ${rows.length} row(s) from CIEC`);
 
+      const beforeCount = await prisma.disclosure.count({ where: { memberId: mp.id } });
       let saved = 0;
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
-        const category = (row.natureOfInterest?.slice(0, 50) || "Other").slice(
-          0,
-          50
-        );
+        const category = (row.natureOfInterest?.slice(0, 50) || "Other").slice(0, 50);
         const description = (row.assetName ?? "").slice(0, 500);
+        for (const sym of extractTickerSymbolsFromText(description + " " + category, true)) {
+          tickerSymbolsFromSync.add(sym);
+        }
         console.log(
           `[CIEC]   Row ${i + 1}: "${row.assetName?.slice(0, 40) ?? ""}..." | ${row.natureOfInterest?.slice(0, 30) ?? ""}`
         );
@@ -76,6 +84,22 @@ async function main() {
         }
       }
 
+      const afterCount = await prisma.disclosure.count({ where: { memberId: mp.id } });
+      if (afterCount !== beforeCount && rows.length > 0) {
+        const text = rows.map((r) => r.assetName + " " + r.natureOfInterest).join(" ");
+        for (const symbol of extractTickerSymbolsFromText(text, true)) {
+          const existing = await prisma.tradeTicker.findFirst({
+            where: { memberId: mp.id, symbol },
+          });
+          if (!existing) {
+            await prisma.tradeTicker.create({
+              data: { memberId: mp.id, symbol, type: "BUY", date: new Date() },
+            });
+            console.log(`[CIEC]   → TradeTicker created: ${mp.name} / ${symbol} (disclosure change)`);
+          }
+        }
+      }
+
       console.log(
         `[CIEC] Done: ${mp.name} — ${saved} new disclosure(s) saved, ${rows.length} total scraped\n`
       );
@@ -85,6 +109,24 @@ async function main() {
       );
     }
   }
+
+  // ——— StockPriceCache: update for every ticker found in disclosures ———
+  console.log("[Sync] Updating StockPriceCache for disclosure tickers...\n");
+  for (const symbol of tickerSymbolsFromSync) {
+    try {
+      const q = await getLiveStockPrice(symbol);
+      if (q) {
+        await prisma.stockPriceCache.upsert({
+          where: { symbol },
+          create: { symbol, price: q.currentPrice, dailyChange: q.dailyChange },
+          update: { price: q.currentPrice, dailyChange: q.dailyChange },
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }
+  console.log(`[Sync] StockPriceCache updated for ${tickerSymbolsFromSync.size} symbol(s).\n`);
 
   console.log("---------- Step 2: LEGISinfo API (bills) ----------\n");
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { MemberProfile } from "@/lib/mock-data";
+import type { MemberProfile } from "@/types";
 
 interface Props {
   profile: MemberProfile;

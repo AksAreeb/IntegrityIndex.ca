@@ -5,14 +5,16 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useJurisdiction } from "@/contexts/JurisdictionContext";
 import { JurisdictionSwitcher } from "./JurisdictionSwitcher";
-import { IntegrityTicker } from "./IntegrityTicker";
+import { StockTicker } from "./StockTicker";
+import { GlobalSearch } from "@/components/GlobalSearch";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/" },
   { label: "Representatives", href: "/mps" },
   { label: "Map", href: "/explore" },
-  { label: "Legislation", href: "/bills" },
-  { label: "Lab", href: "/lab" },
+  { label: "Legislation", href: "/legislation" },
+  { label: "Analytics", href: "/analytics" },
+  { label: "About", href: "/about" },
 ] as const;
 
 interface AppShellProps {
@@ -74,15 +76,16 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
 
-          {/* Right: Jurisdiction Switcher */}
-          <div className="flex-shrink-0">
+          {/* Right: Global search + Jurisdiction Switcher */}
+          <div className="flex-shrink-0 flex items-center gap-4">
+            <GlobalSearch />
             <JurisdictionSwitcher />
           </div>
         </div>
       </header>
 
-      {/* Integrity Ticker */}
-      <IntegrityTicker />
+      {/* Human-first Stock Ticker */}
+      <StockTicker />
 
       <main>{children}</main>
     </div>

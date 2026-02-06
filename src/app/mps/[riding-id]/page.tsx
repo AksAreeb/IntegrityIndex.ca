@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { getMemberByRidingId } from "@/lib/member-service";
 import { getMemberProfile } from "@/lib/mock-data";
 import { getKeyVoteBillNumbers } from "@/lib/api/legisinfo";
 import { AppShell } from "@/components/AppShell";
-import { MemberProfileTabs } from "@/components/member-profile/MemberProfileTabs";
+import { MemberProfileView } from "@/components/member-profile/MemberProfileView";
 
 interface PageProps {
   params: Promise<{ "riding-id": string }>;
@@ -16,25 +15,10 @@ export default async function MemberProfilePage({ params }: PageProps) {
 
   return (
     <AppShell>
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <Link
-          href="/dashboard"
-          className="inline-block text-sm font-sans text-[#64748B] hover:text-[#0F172A] mb-6"
-        >
-          Back to Dashboard
-        </Link>
-
-        <div className="mb-8">
-          <h1 className="font-serif text-2xl font-semibold text-[#0F172A]">
-            {profile.name}
-          </h1>
-          <p className="text-[#64748B] font-sans mt-1">
-            {profile.riding} | {profile.party} | {profile.jurisdiction}
-          </p>
-        </div>
-
-        <MemberProfileTabs profile={profile} keyBillIds={getKeyVoteBillNumbers()} />
-      </div>
+      <MemberProfileView
+        data={profile}
+        keyBillIds={getKeyVoteBillNumbers()}
+      />
     </AppShell>
   );
 }

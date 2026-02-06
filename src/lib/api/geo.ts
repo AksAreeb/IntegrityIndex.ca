@@ -1,7 +1,8 @@
 import axios from "axios";
 import { prisma } from "@/lib/db";
 
-const OPEN_NORTH_BASE = "https://represent.opennorth.ca/postcodes";
+/** OpenNorth Represent API: postcodes endpoint for postal code → boundaries */
+const OPEN_NORTH_POSTCODES_BASE = "https://represent.opennorth.ca/postcodes";
 
 export interface ResolvePostalResult {
   memberId: string;
@@ -41,7 +42,7 @@ export async function getRidingByPostalCode(
         boundary_set_name?: string;
         related?: { boundary_set_url?: string };
       }>;
-    }>(`${OPEN_NORTH_BASE}/${encodeURIComponent(normalized)}/`, {
+    }>(`${OPEN_NORTH_POSTCODES_BASE}/${encodeURIComponent(normalized)}/`, {
       timeout: 10000,
       headers: {
         "User-Agent":
@@ -81,6 +82,33 @@ export async function getRidingByPostalCode(
   } catch {
     return null;
   }
+}
+
+/**
+ * Maps a postal code to Member IDs in the database using the OpenNorth API
+ * (represent.opennorth.ca/postcodes/). Returns federal and, when available,
+ * provincial representative IDs for the given postal code.
+ */
+export async function getMemberIdsByPostalCode(code: string): Promise<{
+  federalMemberId: string | null;
+  provincialMemberId: string | null;
+} | null> {
+  const result = await resolvePostalCode(code);
+  if (!result) return null;
+  const provincial = await prisma.member.findFirst({
+    where: {
+      jurisdiction: "PROVINCIAL",
+      OR: [
+        { riding: result.ridingName },
+        { id: result.ridingId },
+      ],
+    },
+    select: { id: true },
+  });
+  return {
+    federalMemberId: result.memberId,
+    provincialMemberId: provincial?.id ?? null,
+  };
 }
 
 /**

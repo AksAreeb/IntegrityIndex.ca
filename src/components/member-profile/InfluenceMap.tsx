@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import type { IndustryShare } from "@/lib/mock-data";
+import type { IndustryShare } from "@/types";
 
 interface Props {
   data: IndustryShare[];

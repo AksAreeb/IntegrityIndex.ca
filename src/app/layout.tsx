@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Serif, Inter } from "next/font/google";
 import { JurisdictionProvider } from "@/contexts/JurisdictionContext";
+import { logger } from "@/lib/logger";
 import "./globals.css";
 
 const ibmPlexSerif = IBM_Plex_Serif({
@@ -28,7 +29,7 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-console.log("SUCCESS: Running from Local Drive");
+logger.info("App initialized");
 
 export default function RootLayout({
   children,

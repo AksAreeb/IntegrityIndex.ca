@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { scrapeCIEC } from "@/lib/scrapers/ciecScraper";
+import { scrapeCIEC, getMemberPhotoUrl as getFederalPhotoUrl } from "@/lib/scrapers/ciecScraper";
 import { getLiveStockPrice } from "@/lib/api/stocks";
 import { syncBillsToDatabase } from "@/lib/api/legisinfo";
 import { setLastSuccessfulSync } from "@/lib/admin-health";
+import { fetchFederalMembers } from "@/lib/sync";
+import { fetchOntarioMpps } from "@/lib/api/ontario-mpps";
+
+const FEDERAL_TARGET = 343;
+const ONTARIO_MPP_TARGET = 124;
+const OLA_MPP_PHOTO_BASE =
+  "https://www.ola.org/sites/default/files/styles/mpp_profile/public/mpp-photos";
 
 /**
  * GET /api/sync — Institutional Audit:
@@ -71,6 +78,64 @@ export async function GET() {
         step: "C_D_LEGISinfo_Bills",
         ok: false,
         detail: e instanceof Error ? e.message : "LEGISinfo failed",
+      });
+    }
+
+    // Step E: Roster audit — ensure 343 Federal MPs and 124 Ontario MPPs; fetch and upsert if short
+    try {
+      const [federalCount, provincialCount] = await Promise.all([
+        prisma.member.count({ where: { jurisdiction: "FEDERAL" } }),
+        prisma.member.count({ where: { jurisdiction: "PROVINCIAL" } }),
+      ]);
+      if (federalCount < FEDERAL_TARGET) {
+        const federal = await fetchFederalMembers();
+        for (const mp of federal) {
+          await prisma.member.upsert({
+            where: { id: mp.id },
+            create: {
+              id: mp.id,
+              name: mp.name,
+              riding: mp.riding,
+              party: mp.party,
+              jurisdiction: "FEDERAL",
+              chamber: "House of Commons",
+              photoUrl: getFederalPhotoUrl(mp.id),
+            },
+            update: { name: mp.name, riding: mp.riding, party: mp.party, photoUrl: getFederalPhotoUrl(mp.id) },
+          });
+        }
+        results.push({ step: "E_Roster_Federal", ok: true, detail: `${federal.length} federal MPs (target ${FEDERAL_TARGET})` });
+      } else {
+        results.push({ step: "E_Roster_Federal", ok: true, detail: `already ${federalCount} federal` });
+      }
+      if (provincialCount < ONTARIO_MPP_TARGET) {
+        const ontario = await fetchOntarioMpps();
+        for (const mpp of ontario) {
+          const slug = mpp.id.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+          const photoUrl = `${OLA_MPP_PHOTO_BASE}/${encodeURIComponent(slug)}.jpg`;
+          await prisma.member.upsert({
+            where: { id: mpp.id },
+            create: {
+              id: mpp.id,
+              name: mpp.name,
+              riding: mpp.riding,
+              party: mpp.party,
+              jurisdiction: "PROVINCIAL",
+              chamber: "Legislative Assembly",
+              photoUrl,
+            },
+            update: { name: mpp.name, riding: mpp.riding, party: mpp.party, photoUrl },
+          });
+        }
+        results.push({ step: "E_Roster_Ontario", ok: true, detail: `${ontario.length} Ontario MPPs (target ${ONTARIO_MPP_TARGET})` });
+      } else {
+        results.push({ step: "E_Roster_Ontario", ok: true, detail: `already ${provincialCount} provincial` });
+      }
+    } catch (e) {
+      results.push({
+        step: "E_Roster",
+        ok: false,
+        detail: e instanceof Error ? e.message : "Roster fetch failed",
       });
     }
 

@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import useSWR from "swr";
+
+const LIVE_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
 
 interface LiveTickerItem {
   memberName: string;
@@ -15,13 +18,7 @@ interface LiveTickerItem {
   price?: number;
 }
 
-const FALLBACK_NOTICES = [
-  "MP (Vaughan) - BUY: SHOP (Shopify) - $15k-$50k",
-  "MPP (Ottawa) - SELL: ENB (Enbridge) - $1k-$15k",
-  "MP (Calgary Centre) - BUY: SU (Suncor) - $50k-$100k",
-  "MPP (Toronto Centre) - BUY: RY (Royal Bank) - $15k-$50k",
-  "MP (Vancouver Quadra) - SELL: CNR (Canadian National) - $1k-$15k",
-];
+const EMPTY_MESSAGE = "Awaiting next CIEC filing update...";
 
 function formatItem(item: LiveTickerItem): string {
   const role = item.riding.toLowerCase().includes("riding")
@@ -46,15 +43,11 @@ function buildTickerSegment(items: LiveTickerItem[]): string {
   return items.map(formatItem).join("  •  ").concat("  •  ");
 }
 
-function buildFallbackSegment(): string {
-  return FALLBACK_NOTICES.join("  •  ").concat("  •  ");
-}
-
 const fetcher = (url: string) =>
   fetch(url).then((res) => (res.ok ? res.json() : { items: [] }));
 
 export function IntegrityTicker() {
-  const { data } = useSWR<{ items?: LiveTickerItem[] }>(
+  const { data, dataUpdatedAt } = useSWR<{ items?: LiveTickerItem[] }>(
     "/api/trades",
     fetcher,
     {
@@ -64,9 +57,18 @@ export function IntegrityTicker() {
     }
   );
 
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   const items = data?.items ?? [];
   const segment =
-    items.length > 0 ? buildTickerSegment(items) : buildFallbackSegment();
+    items.length > 0 ? buildTickerSegment(items) : EMPTY_MESSAGE;
+
+  const isLive =
+    dataUpdatedAt != null && now - dataUpdatedAt < LIVE_THRESHOLD_MS;
 
   return (
     <div
@@ -76,20 +78,32 @@ export function IntegrityTicker() {
       aria-live="polite"
       aria-label="Live trading and disclosure notices"
     >
-      <div className="flex items-center min-w-max animate-ticker-scroll py-2">
+      {isLive && (
         <span
-          className="font-mono text-[11px] text-[#64748B] whitespace-nowrap px-4 inline-block"
-          style={{ fontVariantNumeric: "tabular-nums" }}
+          className="flex-shrink-0 flex items-center gap-1.5 pl-3 pr-2 text-[10px] font-sans font-semibold uppercase tracking-wide text-emerald-600"
+          aria-label="Stock data is less than 15 minutes old"
         >
-          {segment}
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          Live
         </span>
-        <span
-          className="font-mono text-[11px] text-[#64748B] whitespace-nowrap px-4 inline-block"
-          style={{ fontVariantNumeric: "tabular-nums" }}
-          aria-hidden="true"
-        >
-          {segment}
-        </span>
+      )}
+      <div className="flex items-center min-w-max animate-ticker-scroll py-2 flex-1 overflow-hidden">
+        {items.length > 0 ? (
+          [0, 1].map((i) => (
+            <span
+              key={i}
+              className="font-mono text-[11px] text-[#64748B] whitespace-nowrap px-4 inline-block"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+              aria-hidden={i > 0}
+            >
+              {segment}
+            </span>
+          ))
+        ) : (
+          <span className="font-mono text-[11px] text-[#64748B] px-4">
+            {segment}
+          </span>
+        )}
       </div>
     </div>
   );

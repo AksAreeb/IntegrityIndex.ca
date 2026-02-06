@@ -14,6 +14,8 @@ export interface LiveTickerItem {
   changePercent?: number;
 }
 
+const CACHE_FINANCIAL = "public, s-maxage=1800, stale-while-revalidate=1800";
+
 export async function GET() {
   try {
     const recent = await prisma.tradeTicker.findMany({
@@ -57,11 +59,14 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ items });
+    return NextResponse.json(
+      { items },
+      { headers: { "Cache-Control": CACHE_FINANCIAL } }
+    );
   } catch {
     return NextResponse.json(
-      { error: "Failed to load live ticker", items: [] },
-      { status: 200 }
+      { items: [] },
+      { status: 200, headers: { "Cache-Control": CACHE_FINANCIAL } }
     );
   }
 }

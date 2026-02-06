@@ -1,16 +1,23 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const PLACEHOLDER = "Search by MP name, Riding, or Postal Code...";
-
 const POSTAL_REG = /^[A-Za-z]\d[A-Za-z]\d[A-Za-z]\d$/;
+const DEBOUNCE_MS = 300;
 
 export function CommandKSearchBar() {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query]);
+  // debouncedQuery (300ms) is for future type-ahead / search-as-you-type API to avoid spamming.
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {

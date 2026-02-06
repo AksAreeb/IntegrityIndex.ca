@@ -36,7 +36,7 @@ export function WaitlistForm() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="Notify me when the 44th Parliament Audit goes live."
+          placeholder="Notify me when new disclosure data is available."
           required
           disabled={status === "submitting"}
           aria-describedby="waitlist-status"
@@ -56,7 +56,7 @@ export function WaitlistForm() {
       </p>
       {status === "success" && (
         <p className="mt-3 text-sm text-[#0F172A]/80 text-center font-sans">
-          Thank you. We will notify you when the 44th Parliament Audit goes live.
+          Thank you. We will notify you when new disclosure data is available.
         </p>
       )}
       {status === "error" && (

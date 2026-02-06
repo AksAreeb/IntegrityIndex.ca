@@ -5,7 +5,7 @@ import { ExecutiveSummary } from "./ExecutiveSummary";
 import { FinancialLedger } from "./FinancialLedger";
 import { LegislativeHistory } from "./LegislativeHistory";
 import { InfluenceMap } from "./InfluenceMap";
-import type { MemberProfile } from "@/lib/mock-data";
+import type { MemberProfile } from "@/types";
 
 interface Props {
   profile: MemberProfile;
@@ -14,7 +14,7 @@ interface Props {
 }
 
 const TAB_LABELS = [
-  { value: "summary", label: "Audit Summary" },
+  { value: "summary", label: "Member Audit" },
   { value: "ledger", label: "Financial Ledger" },
   { value: "history", label: "Voting Record" },
   { value: "influence", label: "Correlation Chart" },
@@ -24,14 +24,14 @@ export function MemberProfileTabs({ profile, keyBillIds }: Props) {
   return (
     <Tabs.Root defaultValue="summary" className="w-full">
       <Tabs.List
-        className="flex gap-0 border-b border-[#E2E8F0] mb-6"
+        className="flex gap-0 border-b border-[#E2E8F0] mb-6 overflow-x-auto flex-nowrap"
         aria-label="Member profile sections"
       >
         {TAB_LABELS.map(({ value, label }) => (
           <Tabs.Trigger
             key={value}
             value={value}
-            className="px-6 py-3 text-sm font-sans font-medium text-[#64748B] data-[state=active]:text-[#0F172A] data-[state=active]:border-b-2 data-[state=active]:border-[var(--primary-accent)] -mb-px hover:text-[#0F172A]"
+            className="flex-shrink-0 px-4 py-3 md:px-6 text-sm font-sans font-medium text-[#64748B] data-[state=active]:text-[#0F172A] data-[state=active]:border-b-2 data-[state=active]:border-[var(--primary-accent)] -mb-px hover:text-[#0F172A]"
           >
             {label}
           </Tabs.Trigger>

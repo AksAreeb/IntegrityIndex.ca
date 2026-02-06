@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { CommandKSearchBar } from "@/components/CommandKSearchBar";
-
-const LIVE_STATS = [
-  { label: "Profiles Active", value: "338 MPs | 124 MPPs" },
-  { label: "Trade Volume", value: "142 Recent Disclosures." },
-  { label: "Data Sourcing", value: "100% CIEC & LEGISinfo Verified." },
-] as const;
+import { prisma } from "@/lib/db";
 
 const MISSION_ITEMS = [
   {
@@ -26,13 +21,42 @@ const MISSION_ITEMS = [
   },
 ] as const;
 
-const RECENT_PROFILES = [
-  { name: "Hon. Jane Smith", riding: "Toronto Centre", score: 87 },
-  { name: "Hon. Pierre Laval", riding: "Québec—Lévis", score: 92 },
-  { name: "Hon. Sarah Chen", riding: "Vancouver Granville", score: 78 },
-] as const;
+export default async function Home() {
+  let liveStats: { label: string; value: string }[] = [
+    { label: "Profiles Active", value: "—" },
+    { label: "Trade Volume", value: "—" },
+    { label: "Data Sourcing", value: "100% CIEC & LEGISinfo Verified." },
+  ];
+  let recentProfiles: { id: string; name: string; riding: string }[] = [];
 
-export default function Home() {
+  try {
+    const [memberCounts, tradeCount, recentTrades] = await Promise.all([
+      prisma.member.groupBy({ by: ["jurisdiction"], _count: true }),
+      prisma.tradeTicker.count(),
+      prisma.tradeTicker.findMany({
+        take: 24,
+        orderBy: { date: "desc" },
+        select: { memberId: true },
+      }),
+    ]);
+    const federal = memberCounts.find((c) => c.jurisdiction === "FEDERAL")?._count ?? 0;
+    const provincial = memberCounts.find((c) => c.jurisdiction === "PROVINCIAL")?._count ?? 0;
+    liveStats = [
+      { label: "Profiles Active", value: `${federal} MPs | ${provincial} MPPs` },
+      { label: "Trade Volume", value: `${tradeCount} Recent Disclosures.` },
+      { label: "Data Sourcing", value: "100% CIEC & LEGISinfo Verified." },
+    ];
+    const orderedIds = [...new Set(recentTrades.map((t) => t.memberId))].slice(0, 6);
+    if (orderedIds.length > 0) {
+      const members = await prisma.member.findMany({
+        where: { id: { in: orderedIds } },
+        select: { id: true, name: true, riding: true },
+      });
+      recentProfiles = orderedIds.map((id) => members.find((m) => m.id === id)).filter(Boolean) as { id: string; name: string; riding: string }[];
+    }
+  } catch {
+    // leave defaults
+  }
   return (
     <AppShell>
       <div className="min-h-screen flex flex-col bg-[#FFFFFF]">
@@ -80,7 +104,7 @@ export default function Home() {
               Live Stats
             </h2>
             <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-              {LIVE_STATS.map((card) => (
+              {liveStats.map((card) => (
                 <article
                   key={card.label}
                   className="p-6 border border-slate-200 bg-[#FFFFFF] rounded-none shadow-none"
@@ -135,7 +159,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Recently Updated Profiles (Mock Carousel) */}
+          {/* Recently Updated Profiles (live: by most recent trade activity) */}
           <section
             className="px-6 py-20 md:py-24 border-b border-slate-200"
             aria-labelledby="recent-profiles-heading"
@@ -147,27 +171,36 @@ export default function Home() {
               Recently Updated Profiles
             </h2>
             <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-              {RECENT_PROFILES.map((profile) => (
-                <Link
-                  key={profile.name}
-                  href="/mps"
-                  className="block p-6 border border-slate-200 bg-[#FFFFFF] rounded-none shadow-none hover:border-[#0F172A]/30 transition-colors text-left"
-                  aria-label={`View profile for ${profile.name}, ${profile.riding}`}
-                >
-                  <p className="font-serif text-lg font-semibold text-[#0F172A] mb-1">
-                    {profile.name}
-                  </p>
-                  <p className="text-sm text-[#0F172A]/80 font-sans mb-3">
-                    {profile.riding}
-                  </p>
-                  <span
-                    className="inline-block px-3 py-1 text-xs font-sans font-semibold bg-[#0F172A] text-[#FFFFFF] rounded-none"
-                    aria-label={`Current Integrity Score: ${profile.score}`}
+              {recentProfiles.length === 0 ? (
+                <div className="col-span-full text-center py-12 text-[#64748B] font-sans">
+                  <p>No recent trade activity yet. Run seed or sync to populate.</p>
+                  <Link href="/mps" className="mt-2 inline-block text-sm font-medium text-[#0F172A] hover:underline">
+                    Browse all representatives
+                  </Link>
+                </div>
+              ) : (
+                recentProfiles.slice(0, 3).map((profile) => (
+                  <Link
+                    key={profile.id}
+                    href={`/mps/${encodeURIComponent(profile.id)}`}
+                    className="block p-6 border border-slate-200 bg-[#FFFFFF] rounded-none shadow-none hover:border-[#0F172A]/30 transition-colors text-left"
+                    aria-label={`View profile for ${profile.name}, ${profile.riding}`}
                   >
-                    Current Integrity Score: {profile.score}
-                  </span>
-                </Link>
-              ))}
+                    <p className="font-serif text-lg font-semibold text-[#0F172A] mb-1">
+                      {profile.name}
+                    </p>
+                    <p className="text-sm text-[#0F172A]/80 font-sans mb-3">
+                      {profile.riding}
+                    </p>
+                    <span
+                      className="inline-block px-3 py-1 text-xs font-sans font-semibold bg-[#0F172A] text-[#FFFFFF] rounded-none"
+                      aria-label="View profile"
+                    >
+                      View profile
+                    </span>
+                  </Link>
+                ))
+              )}
             </div>
           </section>
 

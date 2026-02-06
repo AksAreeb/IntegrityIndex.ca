@@ -1,12 +1,13 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// Prisma 7: no url/directUrl in schema (use prisma.config.ts + db.ts). prisma-client-js = standard @prisma/client, no output path.
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model Member {
@@ -14,17 +15,20 @@ model Member {
   name         String
   riding       String
   party        String
-  jurisdiction String
+  jurisdiction String       // "FEDERAL" | "PROVINCIAL"
+  chamber      String?      // "House of Commons" | "Legislative Assembly"
+  photoUrl     String?      // e.g. OfficialMpPhotos/44/{id}.jpg
   disclosures  Disclosure[]
   tradeTickers TradeTicker[]
 }
 
 model Disclosure {
-  id          Int    @id @default(autoincrement())
-  category    String
-  description String
-  memberId    String
-  member      Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  id              Int       @id @default(autoincrement())
+  category        String
+  description     String
+  memberId        String
+  disclosureDate  DateTime? // When the disclosure was filed; used for Wealth Timeline
+  member          Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
 model TradeTicker {

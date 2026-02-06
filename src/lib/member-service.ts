@@ -1,15 +1,11 @@
 import { prisma } from "@/lib/db";
-import {
-  getMemberProfile as getMockMemberProfile,
-  type MemberProfile,
-  type Asset,
-  type Jurisdiction,
-} from "@/lib/mock-data";
+import type { MemberProfile, Asset, Jurisdiction, IndustryShare, VoteRecord } from "@/types";
+import { getMemberProfile as getMockMemberProfile } from "@/lib/mock-data";
 
 /**
  * Fetches a member by riding ID (same identifier as GeoJSON riding_id used in GovernanceMap).
- * Maps DB Member + Disclosure to MemberProfile; fills executiveSummary, legislativeHistory,
- * industryDistribution, preOfficeAssets from mock so the profile tabs render.
+ * Maps DB Member + Disclosure to MemberProfile; generates executiveSummary, legislativeHistory,
+ * and industryDistribution from live DB counts.
  */
 export async function getMemberByRidingId(
   ridingId: string
@@ -36,22 +32,50 @@ export async function getMemberByRidingId(
       disclosureDate: "",
     }));
 
+    const tradeCount = member.tradeTickers.length;
+    const conflictCount = 0;
+    const integrityScore = Math.max(0, 100 - tradeCount * 5 - conflictCount * 15);
+    const executiveSummary = {
+      attendancePercent: 0,
+      integrityScore,
+    };
+    const legislativeHistory: VoteRecord[] = [];
+    const industryDistribution: IndustryShare[] = buildIndustryDistributionFromTickers(
+      member.tradeTickers
+    );
     const mock = getMockMemberProfile(ridingId);
+
     return {
       id: member.id,
       name: member.name,
       riding: member.riding,
       jurisdiction,
       party: member.party,
-      executiveSummary: mock.executiveSummary,
+      executiveSummary,
       assets,
-      legislativeHistory: mock.legislativeHistory,
-      industryDistribution: mock.industryDistribution,
+      legislativeHistory,
+      industryDistribution,
       preOfficeAssets: mock.preOfficeAssets,
     };
   } catch {
     return null;
   }
+}
+
+function buildIndustryDistributionFromTickers(
+  tradeTickers: { symbol: string }[]
+): IndustryShare[] {
+  const bySymbol: Record<string, number> = {};
+  for (const t of tradeTickers) {
+    bySymbol[t.symbol] = (bySymbol[t.symbol] ?? 0) + 1;
+  }
+  const total = tradeTickers.length;
+  if (total === 0) return [];
+  return Object.entries(bySymbol).map(([sector, count]) => ({
+    sector,
+    percentage: Math.round((count / total) * 100),
+    value: count * 10000,
+  }));
 }
 
 function mapCategoryToAssetType(

@@ -6,6 +6,8 @@ declare module "react-simple-maps" {
     projectionConfig?: {
       scale?: number;
       center?: [number, number];
+      parallels?: [number, number];
+      rotate?: [number, number, number];
     };
     width?: number;
     height?: number;
@@ -24,6 +26,7 @@ declare module "react-simple-maps" {
     fill?: string;
     stroke?: string;
     strokeWidth?: number;
+    className?: string;
     style?: {
       default?: React.CSSProperties;
       hover?: React.CSSProperties;
