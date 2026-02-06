@@ -62,6 +62,9 @@ type EnrichedProperties = {
   ridingName?: string;
   ENNAME?: string;
   name?: string;
+  /** Elections Canada / Open Canada property names. */
+  ED_NAMEE?: string;
+  CF_NOMAN?: string;
   /** Federal electoral district ID for data-join with riding-activity (FED_ID or NUM_CF). */
   FED_ID?: string;
   _member?: MemberInfo;

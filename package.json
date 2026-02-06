@@ -2,6 +2,10 @@
   "name": "integrityindex-ca",
   "version": "0.1.0",
   "private": true,
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom"
+  },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
@@ -9,7 +13,7 @@
     "dev": "npm run db:prep && concurrently --kill-others --names \"NEXT,SYNC\" --prefix-colors \"blue,magenta\" \"next dev --turbo\" \"npm run sync:once\"",
     "db:prep": "npx prisma generate && npx prisma migrate deploy",
     "sync:once": "npx tsx scripts/sync.ts",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "sync": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/sync.ts"
