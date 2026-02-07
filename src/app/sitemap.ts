@@ -29,29 +29,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const members = await prisma.member.findMany({
-    select: { id: true },
+    select: { id: true, slug: true },
   });
 
   const memberRoutes: MetadataRoute.Sitemap = members.map((m) => ({
-    url: `${base}/member/${m.id}`,
+    url: `${base}/member/${m.slug ?? m.id}`,
     lastModified: new Date(),
     changeFrequency: "weekly" as const,
     priority: 0.8,
   }));
 
-  const ridings = await prisma.member.findMany({
-    where: { jurisdiction: { in: ["FEDERAL", "PROVINCIAL"] } },
-    select: { riding: true },
-    distinct: ["riding"],
+  const ridings = await prisma.riding.findMany({
+    select: { slug: true },
   });
 
-  const ridingNames = new Set<string>();
-  for (const r of ridings) {
-    if (r.riding?.trim()) ridingNames.add(r.riding.trim());
-  }
-
-  const ridingRoutes: MetadataRoute.Sitemap = [...ridingNames].map((name) => ({
-    url: `${base}/riding/${encodeURIComponent(name)}`,
+  const ridingRoutes: MetadataRoute.Sitemap = ridings.map((r) => ({
+    url: `${base}/riding/${encodeURIComponent(r.slug)}`,
     lastModified: new Date(),
     changeFrequency: "weekly" as const,
     priority: 0.75,

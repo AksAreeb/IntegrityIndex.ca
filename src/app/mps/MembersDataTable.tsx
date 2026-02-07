@@ -68,15 +68,15 @@ export function MembersDataTable({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter by name, riding, party..."
-          className="w-full max-w-sm px-3 py-2 text-sm border border-[#E2E8F0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#0F172A]"
+          className="w-full max-w-sm min-h-[44px] px-3 py-2 text-base border border-[#E2E8F0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#0F172A]"
         />
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[640px]">
+        <table className="w-full text-left border-collapse min-w-0 md:min-w-[640px]">
           <thead>
             <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC]">
-              <th className="px-6 py-3 font-serif text-sm font-semibold text-[#0F172A] w-12" />
-              <th className="px-6 py-3">
+              <th className="px-4 sm:px-6 py-3 font-serif text-sm font-semibold text-[#0F172A] w-10 sm:w-12" />
+              <th className="px-4 sm:px-6 py-3">
                 <button
                   type="button"
                   onClick={() => toggleSort("name")}
@@ -85,7 +85,7 @@ export function MembersDataTable({
                   Name {sortKey === "name" ? (sortDir === "asc" ? "↑" : "↓") : ""}
                 </button>
               </th>
-              <th className="px-6 py-3">
+              <th className="hidden md:table-cell px-6 py-3">
                 <button
                   type="button"
                   onClick={() => toggleSort("riding")}
@@ -94,7 +94,7 @@ export function MembersDataTable({
                   Riding {sortKey === "riding" ? (sortDir === "asc" ? "↑" : "↓") : ""}
                 </button>
               </th>
-              <th className="px-6 py-3">
+              <th className="hidden md:table-cell px-6 py-3">
                 <button
                   type="button"
                   onClick={() => toggleSort("party")}
@@ -103,7 +103,7 @@ export function MembersDataTable({
                   Party {sortKey === "party" ? (sortDir === "asc" ? "↑" : "↓") : ""}
                 </button>
               </th>
-              <th className="px-6 py-3">
+              <th className="hidden md:table-cell px-6 py-3">
                 <button
                   type="button"
                   onClick={() => toggleSort("jurisdiction")}
@@ -112,7 +112,7 @@ export function MembersDataTable({
                   Jurisdiction {sortKey === "jurisdiction" ? (sortDir === "asc" ? "↑" : "↓") : ""}
                 </button>
               </th>
-              <th className="px-6 py-3 font-serif text-sm font-semibold text-[#0F172A]">
+              <th className="px-4 sm:px-6 py-3 font-serif text-sm font-semibold text-[#0F172A]">
                 Action
               </th>
             </tr>
@@ -120,7 +120,7 @@ export function MembersDataTable({
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-[#64748B] text-sm">
+                <td colSpan={6} className="px-4 sm:px-6 py-8 text-center text-[#64748B] text-sm">
                   No representatives match. Try a different filter or run seed.
                 </td>
               </tr>
@@ -130,18 +130,18 @@ export function MembersDataTable({
                   key={m.id}
                   className="border-b border-[#E2E8F0] last:border-b-0 hover:bg-[#F8FAFC]"
                 >
-                  <td className="px-6 py-3">
+                  <td className="px-4 sm:px-6 py-3">
                     <span className="block w-8 h-8 rounded-full overflow-hidden bg-[#F1F5F9]">
                       <MemberPhoto member={m} width={32} height={32} alt={`${m.name}`} />
                     </span>
                   </td>
-                  <td className="px-6 py-3 font-sans text-sm font-medium text-[#0F172A]">
+                  <td className="px-4 sm:px-6 py-3 font-sans text-sm font-medium text-[#0F172A]">
                     {m.name}
                   </td>
-                  <td className="px-6 py-3 font-sans text-sm text-[#0F172A]">{m.riding}</td>
-                  <td className="px-6 py-3 font-sans text-sm text-[#0F172A]">{m.party}</td>
-                  <td className="px-6 py-3 font-sans text-sm text-[#64748B]">{m.jurisdiction}</td>
-                  <td className="px-6 py-3">
+                  <td className="hidden md:table-cell px-6 py-3 font-sans text-sm text-[#0F172A]">{m.riding}</td>
+                  <td className="hidden md:table-cell px-6 py-3 font-sans text-sm text-[#0F172A]">{m.party}</td>
+                  <td className="hidden md:table-cell px-6 py-3 font-sans text-sm text-[#64748B]">{m.jurisdiction}</td>
+                  <td className="px-4 sm:px-6 py-3">
                     <Link
                       href={`/mps/${encodeURIComponent(m.id)}`}
                       className="text-sm font-sans font-medium text-[#0F172A] hover:underline"

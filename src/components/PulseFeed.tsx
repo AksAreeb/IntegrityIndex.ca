@@ -111,7 +111,7 @@ function PulseFeedInner() {
       className="border-b border-slate-200 bg-[#FAFBFC]"
       aria-labelledby="pulse-feed-heading"
     >
-      <div className="max-w-6xl mx-auto px-6 py-6">
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between mb-4">
           <h2
             id="pulse-feed-heading"

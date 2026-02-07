@@ -18,12 +18,11 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const member = await prisma.member.findUnique({
-    where: { id },
-    select: { name: true, riding: true },
-  });
+  const member =
+    (await prisma.member.findUnique({ where: { id }, select: { name: true, riding: true, slug: true } })) ??
+    (await prisma.member.findFirst({ where: { slug: id }, select: { name: true, riding: true, slug: true } }));
   if (!member) return { title: "Member Not Found" };
-  const canonical = `${SITE_URL}/member/${id}`;
+  const canonical = `${SITE_URL}/member/${member.slug ?? id}`;
   const { hasConflict } = await checkConflict(id);
   const baseMeta: Metadata = {
     title: hasConflict
@@ -112,33 +111,57 @@ export default async function MemberProfileMasterPage({
   const { id } = await params;
   const { jurisdiction: jurisdictionParam } = await searchParams;
 
-  const member = await prisma.member.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      riding: true,
-      party: true,
-      jurisdiction: true,
-      photoUrl: true,
-      officialId: true,
-      chamber: true,
-      integrityRank: true,
-      disclosures: {
-        orderBy: { id: "asc" as const },
-        select: {
-          id: true,
-          category: true,
-          description: true,
-          disclosureDate: true,
-          createdAt: true,
+  const member =
+    (await prisma.member.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        riding: true,
+        party: true,
+        jurisdiction: true,
+        photoUrl: true,
+        officialId: true,
+        chamber: true,
+        integrityRank: true,
+        disclosures: {
+          orderBy: { id: "asc" as const },
+          select: {
+            id: true,
+            category: true,
+            description: true,
+            disclosureDate: true,
+            createdAt: true,
+          },
         },
+        tradeTickers: { select: { id: true, symbol: true, type: true, date: true } },
       },
-      tradeTickers: {
-        select: { id: true, symbol: true, type: true, date: true },
+    })) ??
+    (await prisma.member.findFirst({
+      where: { slug: id },
+      select: {
+        id: true,
+        name: true,
+        riding: true,
+        party: true,
+        jurisdiction: true,
+        photoUrl: true,
+        officialId: true,
+        chamber: true,
+        integrityRank: true,
+        disclosures: {
+          orderBy: { id: "asc" as const },
+          select: {
+            id: true,
+            category: true,
+            description: true,
+            disclosureDate: true,
+            createdAt: true,
+          },
+        },
+        tradeTickers: { select: { id: true, symbol: true, type: true, date: true } },
       },
-    },
-  });
+    }));
 
   if (!member) notFound();
 
@@ -195,7 +218,8 @@ export default async function MemberProfileMasterPage({
     "@type": "Person",
     name: member.name,
     jobTitle,
-    description: `${jobTitle} for ${member.riding}, ${member.jurisdiction}. Financial disclosure and integrity profile.`,
+    description: `${jobTitle} for ${member.riding}, ${member.jurisdiction}. Financial disclosure and integrity profile with Integrity Rank (0–100) based on disclosure speed and conflict-of-interest audits.`,
+    knowsAbout: ["Transparency and Ethics"],
     url: `${SITE_URL}/member/${member.id}`,
   };
 
@@ -205,7 +229,7 @@ export default async function MemberProfileMasterPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
       />
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
         <Link
           href={backHref}
           className="inline-block text-sm font-sans text-[#64748B] hover:text-[#0F172A] mb-6"

@@ -8,20 +8,31 @@ datasource db {
   provider = "postgresql"
 }
 
-/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
-model Member {
-  id            String        @id @default(cuid())
-  name          String
-  riding        String
-  party         String
-  jurisdiction  String
-  photoUrl      String?
-  chamber       String?
-  officialId    String?       @unique
-  integrityRank Float?        // 0–100, computed by sync
-  disclosures   Disclosure[]
-  tradeTickers  TradeTicker[]
+enum Jurisdiction {
+  FEDERAL
+  PROVINCIAL
+}
 
+/// This model contains an expression index which requires additional setup for migrations.
+model Member {
+  id                String            @id @default(cuid())
+  slug              String?           @unique // SEO: integrityindex.ca/member/justin-trudeau
+  name              String
+  riding            String
+  party             String
+  jurisdiction      Jurisdiction
+  photoUrl          String?
+  chamber           String?
+  officialId        String?           @unique
+  openParlId        String?           // OpenParliament slug for API lookups (e.g. michael-coteau)
+  integrityRank     Float?
+  disclosures       Disclosure[]
+  tradeTickers      TradeTicker[]
+  memberCommittees  MemberCommittee[]
+
+  @@index([jurisdiction])
+  @@index([slug])
+  @@index([openParlId])
   @@index([name(ops: raw("gin_trgm_ops"))], map: "Member_name_gin_trgm", type: Gin)
   @@index([riding(ops: raw("gin_trgm_ops"))], map: "Member_riding_gin_trgm", type: Gin)
 }
@@ -30,13 +41,17 @@ model Disclosure {
   id             Int       @id @default(autoincrement())
   category       String
   description    String
-  sourceUrl      String?   // 2026: source URL for verification
+  sourceUrl      String?
   memberId       String
   disclosureDate DateTime?
-  createdAt      DateTime  @default(now()) // when record was filed in our system (for integrity rank)
-  conflictFlag   Boolean   @default(false) // High-Risk conflict from Pulse audit
-  conflictReason String?   // e.g. "Committee: Finance | Asset: TD"
+  createdAt      DateTime  @default(now())
+  conflictFlag   Boolean   @default(false)
+  conflictReason String?
+  sectorId       String?   // Pulse linkage for conflict logic
   member         Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  sector         Sector?   @relation(fields: [sectorId], references: [id], onDelete: SetNull)
+
+  @@index([sectorId])
 }
 
 model TradeTicker {
@@ -46,6 +61,70 @@ model TradeTicker {
   date     DateTime
   memberId String
   member   Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+/// 11 GICS sectors for Pulse / conflict logic
+model Sector {
+  id               String       @id @default(cuid())
+  name             String       @unique // e.g. "Financials", "Energy"
+  disclosures      Disclosure[]
+  assetMappings    AssetSectorMapping[]
+  committeeSectors CommitteeSector[]
+}
+
+/// Maps asset keywords (ticker, company name) to Sector for Pulse
+model AssetSectorMapping {
+  id       String @id @default(cuid())
+  keyword  String // lowercase, e.g. "td", "suncor"
+  sectorId String
+  sector   Sector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+
+  @@unique([keyword])
+  @@index([sectorId])
+}
+
+/// Parliamentary committees (e.g. Finance, Natural Resources)
+model Committee {
+  id               String             @id @default(cuid())
+  name             String             @unique
+  committeeSectors CommitteeSector[]
+  memberCommittees MemberCommittee[]
+}
+
+/// Committee oversees one or more sectors
+model CommitteeSector {
+  id          String    @id @default(cuid())
+  committeeId String
+  sectorId    String
+  committee   Committee @relation(fields: [committeeId], references: [id], onDelete: Cascade)
+  sector      Sector    @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+
+  @@unique([committeeId, sectorId])
+  @@index([committeeId])
+  @@index([sectorId])
+}
+
+model MemberCommittee {
+  id          String    @id @default(cuid())
+  memberId    String
+  committeeId String
+  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  committee   Committee @relation(fields: [committeeId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, committeeId])
+  @@index([memberId])
+  @@index([committeeId])
+}
+
+model Riding {
+  id           String       @id @default(cuid())
+  name         String
+  slug         String       @unique // SEO: /riding/papineau
+  jurisdiction Jurisdiction
+  externalId   String?      // Elections Canada FED_ID, OpenNorth external_id
+
+  @@index([slug])
+  @@index([jurisdiction])
 }
 
 model Bill {

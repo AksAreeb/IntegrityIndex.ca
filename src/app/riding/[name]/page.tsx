@@ -35,19 +35,29 @@ export default async function RidingPage({ params }: PageProps) {
     redirect("/explore");
   }
 
+  const slug = decoded.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
+  const riding = await prisma.riding.findFirst({
+    where: { slug },
+    select: { name: true, jurisdiction: true },
+  });
+
+  const ridingName = riding?.name ?? decoded;
   const member = await prisma.member.findFirst({
     where: {
       OR: [
+        { riding: { equals: ridingName, mode: "insensitive" } },
         { riding: { equals: decoded, mode: "insensitive" } },
-        { id: decoded.toLowerCase().replace(/\s+/g, "-") },
+        { id: decoded },
+        ...(slug ? [{ slug }] as const : []),
       ],
-      jurisdiction: "FEDERAL",
+      jurisdiction: riding?.jurisdiction ?? "FEDERAL",
     },
-    select: { id: true },
+    select: { id: true, slug: true },
   });
 
   if (member) {
-    redirect(`/member/${member.id}`);
+    redirect(`/member/${member.slug ?? member.id}`);
   }
 
   const ridingDisplay = formatRidingDisplay(decoded);

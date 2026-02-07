@@ -4,6 +4,7 @@ import Link from "next/link";
 import { memo, useEffect, useState } from "react";
 import useSWR from "swr";
 import { MemberPhoto } from "@/components/MemberPhoto";
+import { StatusPulse } from "@/components/ui/StatusPulse";
 
 const LIVE_THRESHOLD_MS = 15 * 60 * 1000;
 
@@ -70,7 +71,7 @@ function shortName(fullName: string): string {
 
 const fetcher = async (url: string) => {
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       console.error("[StockTicker]: Fetch failed", res.status, res.statusText);
       return { items: [] };
@@ -110,21 +111,21 @@ function StockTickerInner() {
   return (
     <div
       id="live-ledger-ticker"
-      className="bg-[#F8FAFC] border-b border-[#E2E8F0] min-h-[52px] flex items-center overflow-hidden w-full"
+      className="bg-[#F8FAFC] border-b border-[#E2E8F0] min-h-[52px] flex items-center overflow-hidden w-full min-w-0"
       role="status"
       aria-live="polite"
       aria-label="Live trading and disclosure notices"
     >
       {isLive && (
-        <span
-          className="flex-shrink-0 flex items-center gap-1.5 pl-3 pr-2 text-[10px] font-sans font-semibold uppercase tracking-wide text-emerald-600"
-          aria-label="Stock data is less than 15 minutes old"
-        >
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          Live
+        <span className="flex-shrink-0 pl-3 pr-2">
+          <StatusPulse
+            label="Live"
+            aria-label="Stock data is less than 15 minutes old"
+          />
         </span>
       )}
-      <div className="flex items-center gap-6 min-w-max animate-ticker-scroll py-2 flex-1 overflow-hidden">
+      <div className="ticker-scroll-container flex-1 overflow-hidden min-w-0 cursor-default">
+        <div className="flex items-center gap-6 min-w-max animate-ticker-scroll py-2">
         {error ? (
           <span className="font-mono text-[11px] text-amber-600 px-4">
             Live data currently unavailable
@@ -185,6 +186,7 @@ function StockTickerInner() {
             ))}
           </>
         )}
+        </div>
       </div>
     </div>
   );

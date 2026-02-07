@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
+import { StatusPulse } from "@/components/ui/StatusPulse";
 import { DashboardMapAndLeaders } from "./DashboardMapAndLeaders";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/constants";
@@ -34,11 +35,17 @@ export default async function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-serif text-2xl font-semibold text-[#0F172A] mb-2">
-            Interactive Governance Map
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="font-serif text-2xl font-semibold text-[#0F172A] mb-2">
+              Interactive Governance Map
+            </h1>
+            <StatusPulse
+              label="Live"
+              aria-label="Dashboard data is live and syncing"
+            />
+          </div>
           <Link
             href="/analytics"
             className="text-sm font-sans font-medium text-[#0F172A] hover:text-[#334155]"

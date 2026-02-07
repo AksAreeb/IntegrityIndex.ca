@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { resolveSectorForAsset } from "@/lib/sector-resolver";
 
 /** Re-export The Pulse conflict auditor for use across the app. */
 export { checkConflict, COMMITTEE_TO_SECTOR, ASSET_TO_SECTOR } from "@/lib/conflict-audit";
@@ -13,6 +14,9 @@ import { syncBillsToDatabase } from "@/lib/api/legisinfo";
 import { setLastSuccessfulSync } from "@/lib/admin-health";
 import { fetchFederalMembers } from "@/lib/sync";
 import { fetchOntarioMpps } from "@/lib/scrapers/ontario";
+import { slugFromName } from "@/lib/slug";
+import { syncMemberCommittees } from "@/lib/sync-member-committees";
+import { backfillSlugsForMembers } from "@/lib/db-utils";
 
 const FEDERAL_TARGET = 343;
 const ONTARIO_MPP_TARGET = 124;
@@ -63,8 +67,9 @@ export async function calculateIntegrityRank(
   let rank = 100 - avgDelayDays * 0.5 - conflictPenalty;
   return Math.max(0, Math.min(100, Math.round(rank * 10) / 10));
 }
+/** OLA CDN 2026 path for MPP photos (member/profile-photo). */
 const OLA_MPP_PHOTO_BASE =
-  "https://www.ola.org/sites/default/files/styles/mpp_profile/public/mpp-photos";
+  "https://www.ola.org/sites/default/files/member/profile-photo";
 const BATCH_SIZE = 10;
 const TIME_LIMIT_MS = 50_000;
 
@@ -83,15 +88,22 @@ export type RunScraperSyncResult = {
   results: SyncResultStep[];
 };
 
+export type RunScraperSyncOptions = {
+  /** When true, no early exit on time limit (for admin Super Sync). */
+  noTimeLimit?: boolean;
+};
+
 /**
  * Runs the full institutional audit sync:
  * A) CIEC scraper -> Disclosure + TradeTicker
  * B) Finnhub latest prices
  * C&D) LEGISinfo bills
  * E) Roster audit (Federal MPs + Ontario MPPs)
+ * F) Integrity Rank + Conflict flags (The Pulse)
  */
-export async function runScraperSync(): Promise<RunScraperSyncResult> {
+export async function runScraperSync(options?: RunScraperSyncOptions): Promise<RunScraperSyncResult> {
   const startTime = Date.now();
+  const timeLimit = options?.noTimeLimit ? Infinity : TIME_LIMIT_MS;
   const results: SyncResultStep[] = [];
 
   // Step A: CIEC scraper — disclosures + Material Change -> TradeTicker (date_disclosed)
@@ -102,7 +114,7 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
     });
     let tradeTickersCreated = 0;
     for (const m of sampleMembers) {
-      if (Date.now() - startTime > TIME_LIMIT_MS) {
+      if (Date.now() - startTime > timeLimit) {
         console.log("Time limit approaching, saving partial progress");
         break;
       }
@@ -110,12 +122,17 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
       for (const row of rows.slice(0, 3)) {
         const category = normalizeMemberField(row.natureOfInterest, "Other").slice(0, 50);
         const description = normalizeMemberField(row.assetName, "").slice(0, 500) || "—";
+        const sectorId = await resolveSectorForAsset(
+          description,
+          /^[A-Z]{1,5}$/i.test(description.trim()) ? description.trim() : undefined
+        ).catch(() => null);
         await prisma.disclosure
           .create({
             data: {
               memberId: m.id,
               category,
               description,
+              sectorId: sectorId ?? undefined,
             },
           })
           .catch(() => {});
@@ -186,7 +203,7 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
       const federal = await fetchFederalMembers();
       let federalUpserted = 0;
       for (let i = 0; i < federal.length; i += BATCH_SIZE) {
-        if (Date.now() - startTime > TIME_LIMIT_MS) {
+        if (Date.now() - startTime > timeLimit) {
           console.log("Time limit approaching, saving partial progress");
           break;
         }
@@ -223,56 +240,55 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
     } else {
       results.push({ step: "E_Roster_Federal", ok: true, detail: `already ${federalCount} federal` });
     }
-    if (provincialCount < ONTARIO_MPP_TARGET) {
-      let ontario: Awaited<ReturnType<typeof fetchOntarioMpps>> = [];
-      try {
-        ontario = await fetchOntarioMpps();
-      } catch (ontarioErr) {
-        console.warn("[sync-engine] Ontario MPP fetch failed (continuing without Ontario):", ontarioErr);
-      }
-      let ontarioUpserted = 0;
-      for (let i = 0; i < ontario.length; i += BATCH_SIZE) {
-        if (Date.now() - startTime > TIME_LIMIT_MS) {
-          console.log("Time limit approaching, saving partial progress");
-          break;
-        }
-        const batch = ontario.slice(i, i + BATCH_SIZE);
-        for (const mpp of batch) {
-          const name = normalizeMemberField(mpp.name, "Unknown");
-          const riding = normalizeMemberField(mpp.riding, "Unknown");
-          const party = normalizeMemberField(mpp.party, "Independent");
-          const slug = mpp.id.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-          const photoUrl =
-            (mpp as { imageUrl?: string }).imageUrl?.trim() ||
-            `${OLA_MPP_PHOTO_BASE}/${encodeURIComponent(slug)}.jpg`;
-          await prisma.member
-            .upsert({
-              where: { id: mpp.id },
-              create: {
-                id: mpp.id,
-                name,
-                riding,
-                party,
-                jurisdiction: "PROVINCIAL",
-                chamber: "Legislative Assembly",
-                photoUrl,
-              },
-              update: { name, riding, party, photoUrl },
-            })
-            .then(() => { ontarioUpserted += 1; })
-            .catch((err) => console.warn("[sync-engine] Ontario MPP upsert failed:", mpp.id, err));
-        }
-      }
-      results.push({
-        step: "E_Roster_Ontario",
-        ok: true,
-        detail: ontarioUpserted < ontario.length
-          ? `${ontarioUpserted} Ontario MPPs upserted (time limit; target ${ONTARIO_MPP_TARGET})`
-          : `${ontarioUpserted} Ontario MPPs (target ${ONTARIO_MPP_TARGET})`,
-      });
-    } else {
-      results.push({ step: "E_Roster_Ontario", ok: true, detail: `already ${provincialCount} provincial` });
+    // Always run Provincial sync (never skip) to ensure current Ontario data
+    let ontario: Awaited<ReturnType<typeof fetchOntarioMpps>> = [];
+    try {
+      ontario = await fetchOntarioMpps();
+    } catch (ontarioErr) {
+      console.warn("[sync-engine] Ontario MPP fetch failed (continuing without Ontario):", ontarioErr);
     }
+    let ontarioUpserted = 0;
+    for (let i = 0; i < ontario.length; i += BATCH_SIZE) {
+      if (Date.now() - startTime > timeLimit) {
+        console.log("Time limit approaching, saving partial progress");
+        break;
+      }
+      const batch = ontario.slice(i, i + BATCH_SIZE);
+      for (const mpp of batch) {
+        const name = normalizeMemberField(mpp.name, "Unknown");
+        const riding = normalizeMemberField(mpp.riding, "Unknown");
+        const party = normalizeMemberField(mpp.party, "Independent");
+        const slug = slugFromName(name);
+        const olaSlug = (mpp as { olaSlug?: string }).olaSlug ?? mpp.id.replace(/^ON-/, "");
+        const photoUrl =
+          (mpp as { imageUrl?: string }).imageUrl?.trim() ||
+          `${OLA_MPP_PHOTO_BASE}/${olaSlug.split("-").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join("_")}.jpg`;
+        await prisma.member
+          .upsert({
+            where: { id: mpp.id },
+            create: {
+              id: mpp.id,
+              name,
+              riding,
+              party,
+              jurisdiction: "PROVINCIAL",
+              chamber: "Legislative Assembly",
+              photoUrl,
+              slug,
+            },
+            update: { name, riding, party, photoUrl, slug },
+          })
+          .then(() => { ontarioUpserted += 1; })
+          .catch((err) => console.warn("[sync-engine] Ontario MPP upsert failed:", mpp.id, err));
+      }
+    }
+    results.push({
+      step: "E_Roster_Ontario",
+      ok: ontario.length > 0,
+      detail: ontarioUpserted < ontario.length
+        ? `${ontarioUpserted} Ontario MPPs upserted (time limit; target ${ONTARIO_MPP_TARGET})`
+        : `${ontarioUpserted} Ontario MPPs (target ${ONTARIO_MPP_TARGET})`,
+    });
   } catch (e) {
     results.push({
       step: "E_Roster",
@@ -281,7 +297,33 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
     });
   }
 
-  // Step F: Integrity Rank + Conflict flags — run for all 462+ representatives
+    // Step E1.5: Backfill missing slugs for all members
+    try {
+      const { updated } = await backfillSlugsForMembers();
+      if (updated > 0) {
+        results.push({ step: "E1.5_BackfillSlugs", ok: true, detail: `${updated} slugs backfilled` });
+      }
+    } catch {
+      /* non-fatal */
+    }
+
+    // Step E2: MemberCommittee links (required for The Pulse conflict detection)
+  try {
+    const committeeLinks = await syncMemberCommittees();
+    results.push({
+      step: "E2_MemberCommittee",
+      ok: true,
+      detail: `${committeeLinks} MemberCommittee links synced`,
+    });
+  } catch (e) {
+    results.push({
+      step: "E2_MemberCommittee",
+      ok: false,
+      detail: e instanceof Error ? e.message : "MemberCommittee sync failed",
+    });
+  }
+
+  // Step F: Integrity Rank + Conflict flags — run for ALL members (no time limit)
   try {
     await prisma.disclosure.updateMany({
       data: { conflictFlag: false, conflictReason: null },
@@ -289,7 +331,6 @@ export async function runScraperSync(): Promise<RunScraperSyncResult> {
     const members = await prisma.member.findMany({ select: { id: true } });
     let updated = 0;
     for (const m of members) {
-      if (Date.now() - startTime > TIME_LIMIT_MS) break;
       const { conflicts } = await checkConflict(m.id);
       for (const c of conflicts) {
         if (c.disclosureId != null) {

@@ -10,10 +10,15 @@
     "seed": "tsx prisma/seed.ts"
   },
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "npm run db:prep && concurrently --kill-others --names \"NEXT,SYNC\" --prefix-colors \"blue,magenta\" \"next dev --turbo\" \"npm run sync:once\"",
     "db:prep": "npx prisma generate && npx prisma migrate deploy",
+    "db:seed": "npx prisma db seed",
+    "db:rebuild": "npx prisma migrate reset --force && npm run db:seed && npx tsx scripts/backfill-slugs.ts && npx tsx scripts/verify-sync.ts",
+    "db:backfill-slugs": "npx tsx scripts/backfill-slugs.ts",
     "sync:once": "npx tsx scripts/sync.ts",
     "build": "prisma generate && next build",
+    "vercel-build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
     "sync": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" scripts/sync.ts"
@@ -21,6 +26,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-navigation-menu": "^1.2.14",
     "@radix-ui/react-slider": "^1.2.0",
@@ -28,6 +34,7 @@
     "@vercel/analytics": "^1.6.1",
     "axios": "^1.13.4",
     "cheerio": "^1.2.0",
+    "katex": "^0.16.28",
     "next": "^16.1.6",
     "pg": "^8.18.0",
     "react": "^18.3.1",

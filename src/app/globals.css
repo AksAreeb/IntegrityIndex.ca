@@ -10,7 +10,8 @@
   --text-secondary: #64748B;
 }
 
-[data-jurisdiction="FEDERAL"] {
+[data-jurisdiction="FEDERAL"],
+[data-jurisdiction="ALL"] {
   --primary-accent: #0F172A;
 }
 
@@ -18,9 +19,25 @@
   --primary-accent: #334155;
 }
 
+html,
+body {
+  overflow-x: hidden;
+  position: relative;
+}
+
 body {
   background-color: #FFFFFF;
   color: #0F172A;
+}
+
+/* Red Outline Debugger — uncomment to find elements causing horizontal overflow */
+/* * { outline: 1px solid red !important; } */
+
+/* Prevent iOS zoom on input focus — inputs need at least 16px font-size */
+input,
+select,
+textarea {
+  font-size: 16px !important;
 }
 
 /* Mesh gradient animation for landing page */
@@ -68,6 +85,12 @@ body {
 
 .animate-ticker-scroll {
   animation: ticker-scroll 60s linear infinite;
+  will-change: transform;
+}
+
+/* Pause ticker on hover so users can click a trade */
+.ticker-scroll-container:hover .animate-ticker-scroll {
+  animation-play-state: paused;
 }
 
 /* The Pulse — High-Risk Conflict indicator (expanding ring) */
@@ -90,6 +113,29 @@ body {
   border: 2px solid #b8860b;
   animation: pulse-ring 1.5s ease-out infinite;
   pointer-events: none;
+}
+
+/* Sheet drawer slide-in animation */
+.sheet-drawer.sheet-drawer-right {
+  transform: translateX(100%);
+  transition: transform 0.3s ease-out;
+}
+.sheet-drawer.sheet-drawer-right.sheet-open {
+  transform: translateX(0);
+}
+.sheet-drawer.sheet-drawer-left {
+  transform: translateX(-100%);
+  transition: transform 0.3s ease-out;
+}
+.sheet-drawer.sheet-drawer-left.sheet-open {
+  transform: translateX(0);
+}
+.sheet-drawer.sheet-drawer-bottom {
+  transform: translateY(100%);
+  transition: transform 0.3s ease-out;
+}
+.sheet-drawer.sheet-drawer-bottom.sheet-open {
+  transform: translateY(0);
 }
 
 /* Radix NavigationMenu — Viewport for dropdown positioning */

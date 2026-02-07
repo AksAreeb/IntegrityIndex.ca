@@ -17,17 +17,18 @@ const JurisdictionContext = createContext<JurisdictionContextValue | null>(null)
 const COLORS = {
   FEDERAL: "#0F172A",
   PROVINCIAL: "#334155",
+  ALL: "#0F172A",
 } as const;
 
 function readStored(): Jurisdiction {
-  if (typeof window === "undefined") return "FEDERAL";
+  if (typeof window === "undefined") return "ALL";
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw === "FEDERAL" || raw === "PROVINCIAL") return raw;
-  return "FEDERAL";
+  if (raw === "FEDERAL" || raw === "PROVINCIAL" || raw === "ALL") return raw;
+  return "ALL";
 }
 
 export function JurisdictionProvider({ children }: { children: React.ReactNode }) {
-  const [jurisdiction, setJurisdictionState] = useState<Jurisdiction>("FEDERAL");
+  const [jurisdiction, setJurisdictionState] = useState<Jurisdiction>("ALL");
 
   useEffect(() => {
     setJurisdictionState(readStored());
@@ -40,10 +41,12 @@ export function JurisdictionProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
+  const primaryColor = COLORS[jurisdiction] ?? COLORS.ALL;
+
   const value: JurisdictionContextValue = {
     jurisdiction,
     setJurisdiction,
-    primaryColor: COLORS[jurisdiction],
+    primaryColor,
   };
 
   return (

@@ -57,7 +57,7 @@ export default async function BillsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="font-serif text-2xl font-semibold text-[#0F172A] mb-2">
           Legislation
         </h1>

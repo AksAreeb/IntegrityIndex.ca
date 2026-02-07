@@ -9,6 +9,7 @@ import * as NavigationMenu from "@radix-ui/react-navigation-menu";
 import { useJurisdiction } from "@/contexts/JurisdictionContext";
 import { JurisdictionSwitcher } from "./JurisdictionSwitcher";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { Sheet } from "@/components/Sheet";
 
 const StockTicker = dynamic(() => import("./StockTicker").then((mod) => mod.StockTicker), {
   ssr: false,
@@ -49,7 +50,7 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`relative font-sans font-medium text-sm px-3 py-2 rounded-[6px] transition-colors ${
+      className={`relative flex items-center font-sans font-medium text-sm min-h-[44px] min-w-[44px] px-3 py-2 rounded-[6px] transition-colors ${
         isActive
           ? "text-[#0F172A]"
           : "text-[#0F172A]/90 hover:text-[#0F172A] hover:bg-white/50"
@@ -96,14 +97,14 @@ export function AppShell({ children }: AppShellProps) {
     <div className="min-h-screen bg-[#FFFFFF]" data-jurisdiction={jurisdiction}>
       {/* Glassmorphism Header */}
       <header
-        className="sticky top-0 z-50 border-b border-[#E2E8F0]/40"
+        className="sticky top-0 z-50 border-b border-[#E2E8F0]/40 overflow-visible"
         style={{
           background: "rgba(255, 255, 255, 0.72)",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
         }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4 overflow-visible">
           {/* Left: Brand */}
           <Link href="/" className="flex items-center gap-3 flex-shrink-0">
             <Image
@@ -120,11 +121,11 @@ export function AppShell({ children }: AppShellProps) {
           </Link>
 
           {/* Center: Desktop Navigation (Shadcn-style NavigationMenu) */}
-          <NavigationMenu.Root className="hidden md:flex flex-1 justify-center relative">
+          <NavigationMenu.Root className="hidden md:flex flex-1 justify-center relative overflow-visible">
             <NavigationMenu.List className="flex items-center gap-1 list-none m-0 p-0">
               {/* Pillar 1: Transparency */}
-              <NavigationMenu.Item>
-                <NavigationMenu.Trigger className="group flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#0F172A]/90 hover:text-[#0F172A] hover:bg-white/50 rounded-[6px] outline-none focus:ring-2 focus:ring-[#0F172A]/20 data-[state=open]:bg-white/50">
+              <NavigationMenu.Item className="relative">
+                <NavigationMenu.Trigger className="group flex items-center gap-1 min-h-[44px] min-w-[44px] px-3 py-2 text-sm font-medium text-[#0F172A]/90 hover:text-[#0F172A] hover:bg-white/50 rounded-[6px] outline-none focus:ring-2 focus:ring-[#0F172A]/20 data-[state=open]:bg-white/50">
                   Transparency
                   <svg
                     className="w-3.5 h-3.5 transition-transform group-data-[state=open]:rotate-180"
@@ -136,13 +137,13 @@ export function AppShell({ children }: AppShellProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </NavigationMenu.Trigger>
-                <NavigationMenu.Content className="absolute top-0 left-1/2 -translate-x-1/2 w-[220px] rounded-lg bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-lg p-1">
+                <NavigationMenu.Content className="absolute top-0 left-1/2 -translate-x-1/2 w-[220px] rounded-lg bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-lg p-1 mt-1">
                   {TRANSPARENCY_LINKS.map((item) => (
                     <NavigationMenu.Link asChild key={item.href}>
-                      <Link
-                        href={item.href}
-                        className="block px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F8FAFC] rounded-[4px]"
-                      >
+                    <Link
+                      href={item.href}
+                      className="flex items-center min-h-[44px] px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F8FAFC] rounded-[4px]"
+                    >
                         {item.label}
                       </Link>
                     </NavigationMenu.Link>
@@ -181,7 +182,7 @@ export function AppShell({ children }: AppShellProps) {
               </NavigationMenu.Item>
 
               {/* Pillar 4: Mission */}
-              <NavigationMenu.Item>
+              <NavigationMenu.Item className="relative">
                 <NavigationMenu.Trigger className="group flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#0F172A]/90 hover:text-[#0F172A] hover:bg-white/50 rounded-[6px] outline-none focus:ring-2 focus:ring-[#0F172A]/20 data-[state=open]:bg-white/50">
                   Mission
                   <svg
@@ -194,13 +195,13 @@ export function AppShell({ children }: AppShellProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </NavigationMenu.Trigger>
-                <NavigationMenu.Content className="absolute top-0 left-1/2 -translate-x-1/2 w-[180px] rounded-lg bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-lg p-1">
+                <NavigationMenu.Content className="absolute top-0 left-1/2 -translate-x-1/2 w-[180px] rounded-lg bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-lg p-1 mt-1">
                   {MISSION_LINKS.map((item) => (
                     <NavigationMenu.Link asChild key={item.href}>
-                      <Link
-                        href={item.href}
-                        className="block px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F8FAFC] rounded-[4px]"
-                      >
+                    <Link
+                      href={item.href}
+                      className="flex items-center min-h-[44px] px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F8FAFC] rounded-[4px]"
+                    >
                         {item.label}
                       </Link>
                     </NavigationMenu.Link>
@@ -208,7 +209,7 @@ export function AppShell({ children }: AppShellProps) {
                 </NavigationMenu.Content>
               </NavigationMenu.Item>
             </NavigationMenu.List>
-            <NavigationMenu.Viewport className="absolute top-full left-0 w-full flex justify-center pt-2" />
+            <NavigationMenu.Viewport className="absolute top-full left-0 w-full flex justify-center pt-2 overflow-visible" />
           </NavigationMenu.Root>
 
           {/* Right: Search (compact icon until clicked) + Jurisdiction Toggle */}
@@ -225,7 +226,7 @@ export function AppShell({ children }: AppShellProps) {
                 <button
                   type="button"
                   onClick={() => setSearchExpanded(true)}
-                  className="flex items-center justify-center w-9 h-9 rounded-lg border border-[#E2E8F0]/80 bg-white/60 hover:bg-white/90 text-[#64748B] hover:text-[#0F172A] transition-colors shrink-0"
+                  className="flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg border border-[#E2E8F0]/80 bg-white/60 hover:bg-white/90 text-[#64748B] hover:text-[#0F172A] transition-colors shrink-0"
                   aria-label="Open search"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -235,7 +236,7 @@ export function AppShell({ children }: AppShellProps) {
               )}
             </div>
 
-            <div className="hidden sm:flex shrink-0">
+            <div className="hidden sm:flex shrink-0 relative">
               <JurisdictionSwitcher />
             </div>
 
@@ -243,7 +244,7 @@ export function AppShell({ children }: AppShellProps) {
             <button
               type="button"
               onClick={() => setMobileOpen((o) => !o)}
-              className="md:hidden flex items-center justify-center w-10 h-10 rounded-lg border border-[#E2E8F0] bg-white/60 hover:bg-white/80 text-[#0F172A]"
+              className="md:hidden flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg border border-[#E2E8F0] bg-white/60 hover:bg-white/80 text-[#0F172A]"
               aria-expanded={mobileOpen}
               aria-label="Open menu"
             >
@@ -260,18 +261,28 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileOpen && (
-          <div
-            className="md:hidden border-t border-[#E2E8F0]/40 bg-white/95 backdrop-blur-md"
-            style={{ background: "rgba(255, 255, 255, 0.95)" }}
-          >
-            <nav className="px-4 py-4 space-y-1" role="navigation" aria-label="Mobile navigation">
+        {/* Mobile Menu — Sheet drawer (full-screen on small viewports) */}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen} side="right">
+          <div className="flex flex-col h-full overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-[#E2E8F0]">
+              <span className="font-sans font-semibold text-[#0F172A]">Menu</span>
+              <button
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                className="p-2 rounded-lg hover:bg-[#F8FAFC] text-[#64748B] hover:text-[#0F172A]"
+                aria-label="Close menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <nav className="px-4 py-4 space-y-1 flex-1" role="navigation" aria-label="Mobile navigation">
               {/* My Riding — prominent on mobile */}
               <Link
                 href="/my-riding"
                 onClick={() => setMobileOpen(false)}
-                className="flex items-center justify-center w-full py-3 px-4 rounded-lg bg-[#0F172A] text-white font-sans font-semibold text-sm"
+                className="flex items-center justify-center w-full min-h-[44px] py-3 px-4 rounded-lg bg-[#0F172A] text-white font-sans font-semibold text-sm"
               >
                 My Riding — Audit Your Representatives
               </Link>
@@ -284,7 +295,7 @@ export function AppShell({ children }: AppShellProps) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className="block py-2.5 px-4 rounded-lg text-sm text-[#0F172A] hover:bg-[#F8FAFC]"
+                  className="flex items-center min-h-[44px] py-2.5 px-4 rounded-lg text-sm text-[#0F172A] hover:bg-[#F8FAFC]"
                 >
                   {item.label}
                 </Link>
@@ -296,7 +307,7 @@ export function AppShell({ children }: AppShellProps) {
               <Link
                 href="/legislation"
                 onClick={() => setMobileOpen(false)}
-                className="block py-2.5 px-4 rounded-lg text-sm text-[#0F172A] hover:bg-[#F8FAFC]"
+                className="flex items-center min-h-[44px] py-2.5 px-4 rounded-lg text-sm text-[#0F172A] hover:bg-[#F8FAFC]"
               >
                 Legislation
               </Link>
@@ -309,7 +320,7 @@ export function AppShell({ children }: AppShellProps) {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className="block py-2.5 px-4 rounded-lg text-sm text-[#0F172A] hover:bg-[#F8FAFC]"
+                  className="flex items-center min-h-[44px] py-2.5 px-4 rounded-lg text-sm text-[#0F172A] hover:bg-[#F8FAFC]"
                 >
                   {item.label}
                 </Link>
@@ -320,11 +331,11 @@ export function AppShell({ children }: AppShellProps) {
               </div>
             </nav>
           </div>
-        )}
+        </Sheet>
       </header>
 
       <StockTicker />
-      <main>{children}</main>
+      <main className="min-w-0 overflow-x-hidden">{children}</main>
     </div>
   );
 }

@@ -35,8 +35,8 @@ function normalizePostal(q: string): string {
   return q.replace(/\s+/g, "").toUpperCase().slice(0, 6);
 }
 
-const jurisdictionParam = (j: "FEDERAL" | "PROVINCIAL") =>
-  j === "FEDERAL" ? "federal" : "provincial";
+const jurisdictionParam = (j: "FEDERAL" | "PROVINCIAL" | "ALL"): string | undefined =>
+  j === "FEDERAL" ? "federal" : j === "PROVINCIAL" ? "provincial" : undefined;
 
 export function GlobalSearch() {
   const router = useRouter();
@@ -80,9 +80,11 @@ export function GlobalSearch() {
         setPostalSuggestions([]);
       }
 
+      const memberParams = new URLSearchParams({ q: trimmed });
+      if (jParam) memberParams.set("jurisdiction", jParam);
       const [membersRes, postalRes] = await Promise.all([
         fetch(
-          `/api/members?q=${encodeURIComponent(trimmed)}&jurisdiction=${encodeURIComponent(jParam)}`
+          `/api/members?${memberParams.toString()}`
         ).then((r) => (r.ok ? r.json() : { members: [] })),
         isPostal && normalized.length === 6
           ? fetch(
@@ -161,7 +163,7 @@ export function GlobalSearch() {
   if (postal) options.push({ type: "postal", id: "postal", label: `${postal.memberName} — ${postal.ridingName}`, path: `/mps/${encodeURIComponent(postal.ridingId)}` });
   // Postal code suggestions (hints)
   postalSuggestions.forEach((s, i) => options.push({ type: "suggestion", id: `postal-hint-${i}`, label: s }));
-  members.slice(0, 6).forEach((m) => options.push({ type: "member", id: m.id, label: `${m.name} — ${m.riding}`, path: `/member/${encodeURIComponent(m.id)}?jurisdiction=${encodeURIComponent(jurisdictionParam(jurisdiction))}` }));
+  members.slice(0, 6).forEach((m) => options.push({ type: "member", id: m.id, label: `${m.name} — ${m.riding}`, path: `/member/${encodeURIComponent(m.id)}?jurisdiction=${encodeURIComponent(jurisdictionParam(jurisdiction) ?? "all")}` }));
   if (hasQuery) ridings.forEach((r) => options.push({ type: "riding", id: `riding-${r}`, label: r, path: `/members?q=${encodeURIComponent(r)}` }));
   if (!hasQuery && recentTrades.length > 0) {
     recentTrades.forEach((t, i) =>
@@ -169,7 +171,7 @@ export function GlobalSearch() {
         type: "trade",
         id: `trade-${t.memberId}-${t.symbol}-${t.date}-${i}`,
         label: `${t.memberName} ${t.type} ${t.symbol}`,
-        path: `/member/${encodeURIComponent(t.memberId)}?jurisdiction=${encodeURIComponent(jurisdictionParam(jurisdiction))}`,
+        path: `/member/${encodeURIComponent(t.memberId)}?jurisdiction=${encodeURIComponent(jurisdictionParam(jurisdiction) ?? "all")}`,
       })
     );
   }
@@ -224,7 +226,7 @@ export function GlobalSearch() {
         aria-expanded={showDropdown}
         aria-controls="global-search-list"
         aria-activedescendant={activeIndex >= 0 ? `global-search-option-${activeIndex}` : undefined}
-        className="w-full px-3 py-2 text-sm border border-[#E2E8F0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#0F172A]"
+        className="w-full min-h-[44px] px-3 py-2 text-base border border-[#E2E8F0] rounded-[4px] focus:outline-none focus:ring-2 focus:ring-[#0F172A]"
       />
       {showDropdown && (
         <div

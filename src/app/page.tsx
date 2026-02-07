@@ -6,7 +6,7 @@ import { PulseFeed } from "@/components/PulseFeed";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/constants";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   alternates: { canonical: SITE_URL },
@@ -72,7 +72,7 @@ export default async function Home() {
         <main className="flex flex-col flex-1">
           {/* Hero Section */}
           <section
-            className="flex-1 flex flex-col items-center justify-center text-center px-6 py-20 md:py-32 border-b border-slate-200"
+            className="flex-1 flex flex-col items-center justify-center text-center px-4 sm:px-6 py-20 md:py-32 border-b border-slate-200"
             aria-labelledby="hero-heading"
           >
             <div className="max-w-4xl flex flex-col items-center w-full">
@@ -83,9 +83,8 @@ export default async function Home() {
                 The National Standard for Parliamentary Accountability.
               </h1>
               <p className="text-lg md:text-xl text-[#0F172A] max-w-2xl mx-auto mb-10">
-                //Tracking the intersection of private interests and public policy.
-                //Search for any Member of Parliament or Provincial Representative.
                 Coming Soon.
+                Our Website is still under Development.
               </p>
               <CommandKSearchBar />
               <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
@@ -110,7 +109,7 @@ export default async function Home() {
 
           {/* Live Stats */}
           <section
-            className="px-6 py-12 md:py-16 border-b border-slate-200"
+            className="px-4 sm:px-6 py-12 md:py-16 border-b border-slate-200"
             aria-labelledby="live-stats-heading"
           >
             <h2 id="live-stats-heading" className="sr-only">
@@ -146,7 +145,7 @@ export default async function Home() {
               id="mission-heading"
               className="font-serif text-2xl md:text-3xl font-bold text-[#0F172A] text-center mb-12"
             >
-              A Framework Built on Integrity.
+              Built on Integrity.
             </h2>
             <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
               {MISSION_ITEMS.map((item) => (
@@ -225,11 +224,11 @@ export default async function Home() {
 
           {/* Footer */}
           <footer
-            className="px-6 py-8 text-center border-t border-slate-200"
+            className="px-4 sm:px-6 py-8 text-center border-t border-slate-200"
             role="contentinfo"
           >
             <p className="text-xs text-[#0F172A]/50">
-              A Civic-Tech Initiative | IntegrityIndex.ca &copy; 2026
+              Made in Kingston & Oakville, Ontario | IntegrityIndex.ca &copy; 2026
             </p>
           </footer>
         </main>

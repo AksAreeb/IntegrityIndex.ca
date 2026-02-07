@@ -85,13 +85,13 @@ export function SearchInput({
         aria-label={ariaLabel}
         aria-busy={pending}
         disabled={pending}
-        className="flex-1 min-w-0 px-4 py-2.5 text-sm border border-[#E2E8F0] rounded-[4px] bg-white focus:outline-none focus:ring-2 focus:ring-[#0F172A] focus:border-transparent disabled:opacity-70 disabled:cursor-wait"
+        className="flex-1 min-w-0 px-4 py-2.5 text-base border border-[#E2E8F0] rounded-[4px] bg-white focus:outline-none focus:ring-2 focus:ring-[#0F172A] focus:border-transparent disabled:opacity-70 disabled:cursor-wait"
       />
       <button
         type="button"
         onClick={handleSearch}
         disabled={pending || !value.trim()}
-        className="px-4 py-2.5 text-sm font-medium text-white bg-[#0F172A] rounded-[4px] hover:bg-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0F172A] disabled:opacity-60 disabled:cursor-not-allowed"
+        className="min-h-[44px] px-4 py-2.5 text-base font-medium text-white bg-[#0F172A] rounded-[4px] hover:bg-[#1E293B] focus:outline-none focus:ring-2 focus:ring-[#0F172A] disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {pending ? "Searching…" : "Search"}
       </button>

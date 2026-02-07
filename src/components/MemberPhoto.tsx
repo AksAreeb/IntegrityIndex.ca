@@ -66,15 +66,17 @@ export function MemberPhoto({
   const h = size ?? height;
 
   return (
-    <Image
-      src={src}
-      alt={alt}
-      width={w}
-      height={h}
-      className={className}
-      priority={priority}
-      unoptimized={!isKnownHost || errorState !== "none"}
-      onError={handleError}
-    />
+    <div className="group overflow-hidden shadow-md transition-shadow duration-300 group-hover:shadow-xl">
+      <Image
+        src={src}
+        alt={alt}
+        width={w}
+        height={h}
+        className={`${className} transition-transform duration-300 group-hover:scale-105`}
+        priority={priority}
+        unoptimized={!isKnownHost || errorState !== "none"}
+        onError={handleError}
+      />
+    </div>
   );
 }

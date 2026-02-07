@@ -3,16 +3,19 @@ import { AppShell } from "@/components/AppShell";
 import { MembersClient } from "./MembersClient";
 import { SITE_URL } from "@/lib/constants";
 
-export const revalidate = 300;
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   alternates: { canonical: `${SITE_URL}/members` },
+  description:
+    "View the official Integrity Ranks for Canadian MPs and MPPs, calculated based on financial disclosure speed and conflict-of-interest audits.",
 };
 
 export default async function MembersPage() {
   return (
     <AppShell>
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <h1 className="font-serif text-2xl font-semibold text-[#0F172A] mb-2">
           Members
         </h1>

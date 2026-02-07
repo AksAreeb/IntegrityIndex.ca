@@ -12,6 +12,13 @@ export default {
         serif: ["var(--font-ibm-plex-serif)", "Georgia", "serif"],
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
       },
+      colors: {
+        integrity: {
+          primary: "#00204E",
+          accent: "#00FF41",
+          destructive: "#FF3131",
+        },
+      },
     },
   },
   plugins: [],

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 /** Normalize jurisdiction query param to DB value or undefined (all). */
 function parseJurisdiction(value: string | null): "FEDERAL" | "PROVINCIAL" | undefined {
   const v = (value ?? "").toLowerCase();
@@ -55,7 +57,14 @@ export async function GET(request: Request) {
       },
     });
 
-    return NextResponse.json({ members });
+    return NextResponse.json(
+      { members },
+      {
+        headers: {
+          "Cache-Control": "private, no-store, max-age=0",
+        },
+      }
+    );
   } catch (e) {
     console.error("[members]: GET failed", e);
     return NextResponse.json({ members: [] }, { status: 200 });

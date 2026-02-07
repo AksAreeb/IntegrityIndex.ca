@@ -1,6 +1,9 @@
 /**
- * Idempotent seed: Federal MPs (OpenParliament) + Ontario MPPs (OLA).
- * Uses officialId (FED-*, ON-*) for upserts. Compatible with npx tsx prisma/seed.ts.
+ * Robust idempotent seed pipeline:
+ * 1. Federal MPs (OpenParliament) + Ontario MPPs (OLA) — upsert by officialId (FED-*, ON-*)
+ * 2. Sector (11 GICS), Committee, CommitteeSector, AssetSectorMapping — via seed-intelligence
+ * 3. Riding backfill, Member slug backfill, MemberCommittee (FINA) — via seed-intelligence
+ * Run: npx prisma db seed (or npx tsx prisma/seed.ts)
  */
 import "dotenv/config";
 import axios from "axios";
@@ -197,6 +200,29 @@ async function main() {
 
   const total = await prisma.member.count();
   console.log(`[Seed] Done. Total members in DB: ${total}.\n`);
+
+  // Backfill Member slugs for those missing
+  const { slugFromName } = await import("../src/lib/slug");
+  const withoutSlug = await prisma.member.findMany({
+    where: { OR: [{ slug: null }, { slug: "" }] },
+    select: { id: true, name: true },
+  });
+  for (const m of withoutSlug) {
+    const slug = slugFromName(m.name);
+    let uniqueSlug = slug;
+    let n = 0;
+    while (await prisma.member.findUnique({ where: { slug: uniqueSlug } })) {
+      uniqueSlug = `${slug}-${++n}`;
+    }
+    await prisma.member.update({ where: { id: m.id }, data: { slug: uniqueSlug } });
+  }
+  if (withoutSlug.length > 0) {
+    console.log(`[Seed] Backfilled slugs for ${withoutSlug.length} members.\n`);
+  }
+
+  // Run intelligence layer seed (Sector, Committee, AssetSectorMapping)
+  const { execSync } = await import("child_process");
+  execSync("npx tsx prisma/seed-intelligence.ts", { stdio: "inherit" });
 }
 
 main()

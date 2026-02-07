@@ -58,8 +58,8 @@ export function MemberGrid({
   );
 }
 
-const jurisdictionParam = (j: "FEDERAL" | "PROVINCIAL") =>
-  j === "FEDERAL" ? "federal" : "provincial";
+const jurisdictionParam = (j: "FEDERAL" | "PROVINCIAL" | "ALL"): string =>
+  j === "FEDERAL" ? "federal" : j === "PROVINCIAL" ? "provincial" : "all";
 
 interface MembersClientProps {
   initialMembers: MemberSearchResult[];
@@ -78,7 +78,9 @@ export function MembersClient({ initialMembers }: MembersClientProps) {
     async (q: string) => {
       setLoading(true);
       try {
-        const params = new URLSearchParams({ jurisdiction: jurisdictionParam(jurisdiction) });
+        const params = new URLSearchParams();
+        const jParam = jurisdictionParam(jurisdiction);
+        if (jParam && jParam !== "all") params.set("jurisdiction", jParam);
         if (q.trim()) params.set("q", q.trim());
         const res = await fetch(`/api/members?${params.toString()}`);
         const data = await res.json();

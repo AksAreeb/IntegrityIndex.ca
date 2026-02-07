@@ -141,7 +141,11 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
   const [clickLoading, setClickLoading] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const ok = typeof window !== "undefined";
+    setMounted(ok);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[GovernanceMap] mounted:", ok, "window defined:", ok);
+    }
   }, []);
 
   const isFederal = mode === "federal";
@@ -178,9 +182,15 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
             geoJson = await geoFallbackRes.json();
           } else {
             console.error("[GovernanceMap] GeoJSON/TopoJSON fetch failed:", topoRes.status, geoFallbackRes.status);
-            setError(`Failed to load map (${geoFallbackRes.status})`);
-            setLoading(false);
-            return;
+            const apiFallback = await fetch("/api/geojson/federal").catch(() => null);
+            if (apiFallback?.ok) {
+              geoJson = await apiFallback.json();
+              console.log("[GovernanceMap] Using /api/geojson/federal fallback (province-level)");
+            } else {
+              setError(`Failed to load map (${geoFallbackRes.status})`);
+              setLoading(false);
+              return;
+            }
           }
 
           const membersData = await membersRes.json().catch(() => ({ members: [] }));
@@ -270,6 +280,7 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
             };
           });
 
+          console.log("[GovernanceMap] Federal geographies loaded:", enrichedFeatures.length, "features");
           setGeoData({
             type: geoJson.type ?? "FeatureCollection",
             features: enrichedFeatures,
@@ -283,9 +294,11 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
           }
           const data = await res.json();
           const normalized = normalizeGeoJson(data);
+          const features = normalized.features as GeoFeature[];
+          console.log("[GovernanceMap] Ontario geographies loaded:", features.length, "features");
           setGeoData({
             type: normalized.type,
-            features: normalized.features as GeoFeature[],
+            features,
           });
         }
         setLoading(false);
@@ -421,8 +434,11 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
       >
         {geoData ? (
           <Geographies geography={geoData}>
-            {({ geographies }) =>
-              (geographies as GeoFeature[]).map((geo) => {
+            {({ geographies }) => {
+              if (process.env.NODE_ENV === "development" && geographies?.length === 0) {
+                console.warn("[GovernanceMap] Geographies empty - map container may have 0px height");
+              }
+              return (geographies as GeoFeature[]).map((geo) => {
                 const rid = geo.properties?.ridingId ?? geo.properties?.ridingName ?? "unknown";
                 return (
                   <MemoizedGeography
@@ -436,8 +452,8 @@ function GovernanceMapInner({ mode }: GovernanceMapProps) {
                     onClick={handleClick}
                   />
                 );
-              })
-            }
+              });
+            }}
           </Geographies>
         ) : (
           <MapSkeleton />

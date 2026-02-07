@@ -21,12 +21,10 @@ interface Props {
   mode: OversightMode;
 }
 
-const MAP_ASPECT_RATIO = "aspect-[16/10]";
-
 function GovernanceMapDynamicInner({ mode }: Props) {
   return (
-    <div className={`w-full ${MAP_ASPECT_RATIO} min-h-[400px] bg-[#F1F5F9] rounded-[4px] overflow-hidden`}>
-      <div className="w-full h-full">
+    <div className="w-full aspect-video md:aspect-[16/10] h-[400px] md:h-auto md:min-h-[600px] bg-[#F1F5F9] rounded-[4px] overflow-hidden">
+      <div className="w-full h-full min-h-[300px] md:min-h-[600px]">
         <GovernanceMap mode={mode} />
       </div>
     </div>

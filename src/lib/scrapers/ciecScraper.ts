@@ -11,14 +11,21 @@ const REGISTRY_ARCHIVE_OR_PREVIOUS =
   "https://prciec-rpccie.parl.gc.ca/EN/PublicRegistries/Pages/PublicRegistry.aspx";
 const DECLARATION_PAGE = `${CIEC_PAGES}/Declaration.aspx`;
 
-/** Official MP photo — 45th Parliament (primary). Use Member's House of Commons ID. */
-export const OFFICIAL_MP_PHOTO_BASE_45 =
-  "https://www.ourcommons.ca/Content/Parliamentarians/Images/OfficialMpPhotos/45";
-/** Fallback when 45th photo 404s (e.g. members from previous parliament). */
-export const OFFICIAL_MP_PHOTO_BASE_44 =
-  "https://www.ourcommons.ca/Content/Parliamentarians/Images/OfficialMpPhotos/44";
+/** Current parliament session for official high-res photos (45th Parliament). */
+export const PARLIAMENT_SESSION = 45;
 
-/** Returns 45th Parliament photo URL for a federal MP. */
+/** Official high-res MP photo base; format: {base}/{session}/{officialId}.jpg */
+const OFFICIAL_MP_PHOTO_BASE =
+  "https://www.ourcommons.ca/Content/Parliamentarians/Images/OfficialMpPhotos";
+/** 45th Parliament (primary) — use for current members. */
+export const OFFICIAL_MP_PHOTO_BASE_45 = `${OFFICIAL_MP_PHOTO_BASE}/${PARLIAMENT_SESSION}`;
+/** Fallback when 45th photo 404s (e.g. members from previous parliament). */
+export const OFFICIAL_MP_PHOTO_BASE_44 = `${OFFICIAL_MP_PHOTO_BASE}/44`;
+
+/** Local placeholder when remote photo returns 404 (avoids Next.js upstream image errors). */
+export const PLACEHOLDER_MEMBER_PHOTO = "/images/placeholder-member.png";
+
+/** Returns 45th Parliament official high-res photo URL for a federal MP. */
 export function getMemberPhotoUrl(memberId: string): string {
   return `${OFFICIAL_MP_PHOTO_BASE_45}/${encodeURIComponent(memberId)}.jpg`;
 }
@@ -26,6 +33,29 @@ export function getMemberPhotoUrl(memberId: string): string {
 /** Returns 44th Parliament fallback URL for a federal MP. */
 export function getMemberPhotoUrl44(memberId: string): string {
   return `${OFFICIAL_MP_PHOTO_BASE_44}/${encodeURIComponent(memberId)}.jpg`;
+}
+
+const HEAD_OPTS = {
+  timeout: 8000,
+  headers: {
+    "User-Agent": "Mozilla/5.0 (compatible; IntegrityIndex/1.0; +https://integrityindex.ca)",
+  },
+  validateStatus: (s: number) => s === 200 || s === 404,
+};
+
+/**
+ * Resolves the photo URL to store for a federal MP: uses official 45th Parliament URL;
+ * if it returns 404, returns the local placeholder so the DB doesn't store a broken URL.
+ */
+export async function resolveFederalPhotoUrl(officialId: string): Promise<string> {
+  const url = getMemberPhotoUrl(officialId);
+  try {
+    const res = await axios.head(url, HEAD_OPTS);
+    if (res.status === 404) return PLACEHOLDER_MEMBER_PHOTO;
+    return url;
+  } catch {
+    return PLACEHOLDER_MEMBER_PHOTO;
+  }
 }
 
 export interface CIECAssetRow {

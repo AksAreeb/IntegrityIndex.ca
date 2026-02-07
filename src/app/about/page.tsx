@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import { AppShell } from "@/components/AppShell";
 import { SITE_URL } from "@/lib/constants";
 
@@ -11,10 +13,10 @@ export const metadata: Metadata = {
 };
 
 const PENALTIES = [
-  { code: "P_T", name: "Trade volume", math: "−5 × trades (cap 30)", deduction: "−5 points per trade (buy or sell) in the last 12 months. Cap: −30 points.", why: "Frequent trading while in office can create conflicts with the public interest." },
-  { code: "P_C", name: "Sector conflict", math: "−15 if conflict", deduction: "−15 points when a member sits on a committee that regulates an industry and also holds stocks in that industry.", why: "Regulating a sector while owning shares in it can bias decisions." },
-  { code: "P_D", name: "Late filings", math: "−1 per 10 days late", deduction: "−1 point per 10 days a disclosure is filed after the 30-day legal grace period.", why: "Late filing undermines transparency. We deduct points so repeated delays are visible." },
-  { code: "P_L", name: "Legislative proximity", math: "−20 if sponsor + stake", deduction: "−20 points when a member sponsors (or leads) a bill that directly affects a sector where they hold more than $10,000 in assets.", why: "Sponsoring legislation that impacts your own investments is a clear conflict." },
+  { code: "P_T", name: "Trade volume", pointValue: "−5 pts", math: "−5 × trades (cap 30)", deduction: "−5 points per trade (buy or sell) in the last 12 months. Cap: −30 points.", why: "Frequent trading while in office can create conflicts with the public interest." },
+  { code: "P_C", name: "Sector conflict", pointValue: "−15 pts", math: "−15 if conflict", deduction: "−15 points when a member sits on a committee that regulates an industry and also holds stocks in that industry.", why: "Regulating a sector while owning shares in it can bias decisions." },
+  { code: "P_D", name: "Late filings", pointValue: "−1 pt", math: "−1 per 10 days late", deduction: "−1 point per 10 days a disclosure is filed after the 30-day legal grace period.", why: "Late filing undermines transparency. We deduct points so repeated delays are visible." },
+  { code: "P_L", name: "Legislative proximity", pointValue: "−20 pts", math: "−20 if sponsor + stake", deduction: "−20 points when a member sponsors (or leads) a bill that directly affects a sector where they hold more than $10,000 in assets.", why: "Sponsoring legislation that impacts your own investments is a clear conflict." },
 ] as const;
 
 export default function AboutPage() {
@@ -24,10 +26,10 @@ export default function AboutPage() {
         {/* Vision Statement */}
         <div className="mb-16 text-center">
           <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold text-[#0F172A] mb-6">
-            Strengthening the Fabric of Canadian Democracy.
+            Giving the People the Keys to Transparency
           </h1>
           <p className="text-lg md:text-xl text-[#64748B] font-sans max-w-3xl mx-auto leading-relaxed">
-            Integrity Index is a non-partisan, open-source initiative dedicated to providing every Canadian citizen with real-time transparency into the financial interests of their elected officials.
+            Integrity Index is a non-partisan initiative dedicated to providing every Canadian citizen with real-time transparency into the financial interests of their elected officials.
           </p>
         </div>
 
@@ -39,26 +41,26 @@ export default function AboutPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="border-2 border-[#0F172A] rounded-[4px] p-6 bg-white">
               <h3 className="font-serif text-xl font-semibold text-[#0F172A] mb-3">
-                Radical Transparency
+                Accessibility
               </h3>
               <p className="text-base text-[#64748B] font-sans leading-relaxed">
-                Real-time tracking of Federal and Provincial disclosures so citizens can see when and how their representatives report their financial interests.
+                Information is our right. We've made sure our website is WCAG complaint, mobile friendly, accessibible on slow connections and reachable to all Canadians. 
               </p>
             </div>
             <div className="border-2 border-[#0F172A] rounded-[4px] p-6 bg-white">
               <h3 className="font-serif text-xl font-semibold text-[#0F172A] mb-3">
-                Public Accountability
+                Compliance
               </h3>
               <p className="text-base text-[#64748B] font-sans leading-relaxed">
-                An algorithmic &lsquo;Integrity Rank&rsquo; that rewards pro-active filing and clear disclosure, making accountability visible to every voter.
+                Rules only work if they are followed. Our system monitors fiiling deadlines and reporting accuracy, audting whether officials are meeting legal transparency obligations.
               </p>
             </div>
             <div className="border-2 border-[#0F172A] rounded-[4px] p-6 bg-white">
               <h3 className="font-serif text-xl font-semibold text-[#0F172A] mb-3">
-                Democratic Accessibility
+                Transparency
               </h3>
               <p className="text-base text-[#64748B] font-sans leading-relaxed">
-                WCAG-compliant design ensuring all Canadians can access this data, regardless of ability or technology.
+              We use multiple APIs, Data Scrapers and Open Source Data all verified through Public Records of Federal and Provincial disclosures. Now citizens can see if their elected officials really represent their constituents.
               </p>
             </div>
           </div>
@@ -67,70 +69,81 @@ export default function AboutPage() {
         {/* How the Score Works */}
         <section className="mb-12">
           <h2 className="font-serif text-2xl font-semibold text-[#0F172A] mb-4">
-            How the Integrity Score Works
+            The Integrity Score
           </h2>
           <p className="text-base text-[#0F172A] leading-relaxed mb-4">
-            Every member starts with a score of 100. We subtract points for four types of risk factors: trade volume, sector conflicts, late filings, and legislative proximity to personal investments.
+            We've created a score, calculated using a formula that takes into account all the data we have, to help you understand how your elected officials are doing.
           </p>
           <p className="text-base text-[#64748B] leading-relaxed">
-            The result is a 0–100 Integrity Score with a letter grade (A–F). This score is for transparency only and is not a legal or official finding.
+            All Officials are given a 0–100 Score with a letter grade (A–F). This score is for transparency only and is not a legal or official finding.
           </p>
         </section>
 
-        {/* Formula: LaTeX-style metric block */}
-        <div className="border-2 border-[#0F172A] rounded-[4px] overflow-hidden mb-12 bg-white">
-          <h2 className="font-serif text-xl font-semibold text-[#0F172A] px-6 pt-6 pb-2">
+        {/* Formula: LaTeX-rendered with card and legend */}
+        <section className="mb-12" aria-labelledby="formula-heading">
+          <h2 id="formula-heading" className="font-serif text-2xl font-semibold text-[#0F172A] mb-4">
             The Formula
           </h2>
           <div
-            className="mx-6 mb-4 p-8 bg-[#F1F5F9] border border-[#E2E8F0] rounded-[4px] font-serif text-[#0F172A]"
+            className="p-8 md:p-10 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] shadow-sm"
             role="math"
             aria-label="Integrity score formula"
           >
-            <div className="text-center">
-              <p className="text-2xl md:text-3xl font-normal tracking-tight mb-1" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
-                <span className="italic">I</span> = 100 − (<span className="italic">P</span><sub className="text-lg align-baseline">T</sub> + <span className="italic">P</span><sub className="text-lg align-baseline">C</sub> + <span className="italic">P</span><sub className="text-lg align-baseline">D</sub> + <span className="italic">P</span><sub className="text-lg align-baseline">L</sub>)
-              </p>
-              <p className="text-sm text-[#64748B] font-sans mt-3 mb-0">
-                Integrity Score <span className="italic text-[#0F172A]">I</span>; deductions: <span className="italic text-[#0F172A]">P</span><sub>T</sub> Trades, <span className="italic text-[#0F172A]">P</span><sub>C</sub> Conflicts, <span className="italic text-[#0F172A]">P</span><sub>D</sub> Delays, <span className="italic text-[#0F172A]">P</span><sub>L</sub> Legislation
-              </p>
-            </div>
+            <div
+              className="text-center [&_.katex]:text-2xl [&_.katex]:md:text-3xl"
+              dangerouslySetInnerHTML={{
+                __html: katex.renderToString("I = 100 - (P_T + P_C + P_D + P_L)", {
+                  displayMode: true,
+                  throwOnError: false,
+                }),
+              }}
+            />
+            <dl className="mt-6 text-center font-sans text-sm text-[#64748B] space-y-1.5 max-w-xl mx-auto">
+              <dt className="sr-only">Variable definitions</dt>
+              <dd><span className="font-medium text-[#0F172A]" aria-label="P sub T">P<sub>T</sub></span> — Trade volume (frequent trading)</dd>
+              <dd><span className="font-medium text-[#0F172A]" aria-label="P sub C">P<sub>C</sub></span> — Sector conflict (committee + holdings)</dd>
+              <dd><span className="font-medium text-[#0F172A]" aria-label="P sub D">P<sub>D</sub></span> — Late filings (disclosure delays)</dd>
+              <dd><span className="font-medium text-[#0F172A]" aria-label="P sub L">P<sub>L</sub></span> — Legislative proximity (sponsor + stake)</dd>
+            </dl>
           </div>
-          <p className="font-sans text-base text-[#64748B] px-6 pb-6">
-            Every member starts at 100. We subtract points for four types of risk. The result is a 0–100 Integrity Score and a letter grade (A–F).
+          <p className="font-sans text-base text-[#64748B] mt-4 leading-relaxed">
+            This is version 1 of our formula, we may implement changes and/or additional factors in the future.
           </p>
+        </section>
 
-          {/* Health Gauge: 100 is the goal */}
-          <div className="px-6 pb-6 border-t border-[#E2E8F0]">
-            <h3 className="font-serif text-lg font-semibold text-[#0F172A] mb-3">Health Gauge</h3>
-            <div className="flex items-center gap-2 flex-wrap mb-3">
-              <span className="font-mono text-sm font-bold text-[#0F172A] bg-[#F1F5F9] px-3 py-1.5 rounded">100</span>
-              <span className="text-base text-[#64748B]">= goal (no deductions).</span>
-            </div>
-            <p className="text-sm text-[#64748B] mb-3">Each penalty reduces the score:</p>
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-mono text-[#0F172A]">
-              {PENALTIES.map((p) => (
-                <span key={p.code} className="bg-[#F8FAFC] px-3 py-1 rounded">{p.code}: {p.math}</span>
-              ))}
-            </div>
+        {/* Health Gauge: grid of four penalty cards with Goal: 100 badge */}
+        <section className="mb-12" aria-labelledby="health-gauge-heading">
+          <h2 id="health-gauge-heading" className="font-serif text-2xl font-semibold text-[#0F172A] mb-4">
+            Health Gauge
+          </h2>
+          <div className="flex items-center justify-center mb-6">
+            <span className="inline-flex items-center font-sans text-sm font-semibold text-[#0F172A] bg-[#E2E8F0] border border-[#CBD5E1] px-4 py-2 rounded-lg">
+              Goal: 100
+            </span>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border-t border-[#E2E8F0]" aria-label="Penalty list">
+          <p className="text-center text-sm text-[#64748B] font-sans mb-6">Each penalty reduces the score. Aim for no deductions.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Penalty list">
             {PENALTIES.map((p) => (
-              <div key={p.code} className="p-6 border-b border-[#E2E8F0] md:odd:border-r md:border-b last:border-b-0 md:last:border-b-0 md:[&:nth-last-child(-n+2)]:border-b-0">
-                <h3 className="font-serif text-lg font-semibold text-[#0F172A] mb-2">
+              <div
+                key={p.code}
+                className="p-5 rounded-xl border border-[#E2E8F0] bg-white shadow-sm flex flex-col"
+              >
+                <p className="font-mono text-lg font-bold text-[#0F172A] mb-2">
+                  {p.pointValue}
+                </p>
+                <h3 className="font-serif text-base font-semibold text-[#0F172A] mb-2">
                   {p.code} — {p.name}
                 </h3>
-                <p className="font-sans text-base text-[#0F172A] mb-2">
-                  <strong>{p.deduction}</strong>
+                <p className="font-sans text-base text-[#0F172A] mb-3">
+                  {p.deduction}
                 </p>
-                <p className="font-sans text-sm text-[#64748B] leading-relaxed">
+                <p className="font-sans text-sm text-[#64748B] leading-relaxed mt-auto">
                   Why it matters: {p.why}
                 </p>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
         {/* Data Sources and Methodology */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
@@ -151,11 +164,11 @@ export default function AboutPage() {
           </div>
           <div>
             <h2 className="font-serif text-xl font-semibold text-[#0F172A] mb-4">
-              Legal Notice
+              Disclaimer
             </h2>
             <p className="text-base text-[#64748B] leading-relaxed">
-              This is version 1 of our methodology. We built it to be easy to understand for Canadian voters. Our methodology is available for Open Source Verification. Grades are for transparency only and are not a legal or official finding.
-            </p>
+            The Integrity Index is an independent, non-partisan transparency tool. All data is sourced from public federal and provincial disclosure records. While we strive for accuracy, this data is provided "as-is" for informational purposes only. The Integrity Score and associated letter grades are metrics designed to measure administrative transparency and filing behavior; they do not constitute legal findings, official government ratings or accusations of misconduct. Users should verify critical information through official legislative channels.
+              </p>
           </div>
         </div>
 

@@ -56,7 +56,7 @@ export interface AppStatus {
 
 // ----- Composite / view types for Member Profile UI -----
 
-export type Jurisdiction = "FEDERAL" | "PROVINCIAL";
+export type Jurisdiction = "FEDERAL" | "PROVINCIAL" | "ALL";
 
 export interface MemberProfile {
   id: string;
