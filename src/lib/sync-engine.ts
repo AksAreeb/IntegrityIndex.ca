@@ -17,6 +17,7 @@ import { fetchOntarioMpps } from "@/lib/scrapers/ontario";
 import { slugFromName } from "@/lib/slug";
 import { syncMemberCommittees } from "@/lib/sync-member-committees";
 import { backfillSlugsForMembers } from "@/lib/db-utils";
+import { enhanceMembers } from "@/lib/enhance-members";
 
 const FEDERAL_TARGET = 343;
 const ONTARIO_MPP_TARGET = 124;
@@ -91,7 +92,23 @@ export type RunScraperSyncResult = {
 export type RunScraperSyncOptions = {
   /** When true, no early exit on time limit (for admin Super Sync). */
   noTimeLimit?: boolean;
+  /**
+   * When set, only run this task (keeps execution under Vercel 60s limit).
+   * Use "full" or omit to run all steps.
+   */
+  task?: SyncTask;
 };
+
+/** Supported single-task values for ?task= (one province or one data type at a time). */
+export type SyncTask =
+  | "legislation"
+  | "federal"
+  | "provincial"
+  | "ciec"
+  | "finnhub"
+  | "committees"
+  | "integrity"
+  | "full";
 
 /**
  * Runs the full institutional audit sync:
@@ -104,9 +121,13 @@ export type RunScraperSyncOptions = {
 export async function runScraperSync(options?: RunScraperSyncOptions): Promise<RunScraperSyncResult> {
   const startTime = Date.now();
   const timeLimit = options?.noTimeLimit ? Infinity : TIME_LIMIT_MS;
+  const task = options?.task;
+  const runAll = !task || task === "full";
+
   const results: SyncResultStep[] = [];
 
   // Step A: CIEC scraper — disclosures + Material Change -> TradeTicker (date_disclosed)
+  if (runAll || task === "ciec") {
   try {
     const sampleMembers = await prisma.member.findMany({
       take: 5,
@@ -161,8 +182,10 @@ export async function runScraperSync(options?: RunScraperSyncOptions): Promise<R
       detail: e instanceof Error ? e.message : "CIEC scrape failed",
     });
   }
+  }
 
   // Step B: Finnhub latest prices for TradeTicker symbols (no DB store)
+  if (runAll || task === "finnhub") {
   try {
     const symbols = await prisma.tradeTicker.findMany({
       select: { symbol: true },
@@ -180,8 +203,10 @@ export async function runScraperSync(options?: RunScraperSyncOptions): Promise<R
       detail: e instanceof Error ? e.message : "Finnhub failed",
     });
   }
+  }
 
   // Step C & D: LEGISinfo XML -> parse Status/Number/Title -> upsert Bill
+  if (runAll || task === "legislation") {
   try {
     const { count } = await syncBillsToDatabase();
     results.push({ step: "C_D_LEGISinfo_Bills", ok: true, detail: `${count} bills` });
@@ -192,14 +217,16 @@ export async function runScraperSync(options?: RunScraperSyncOptions): Promise<R
       detail: e instanceof Error ? e.message : "LEGISinfo failed",
     });
   }
+  }
 
   // Step E: Roster audit — ensure 343 Federal MPs and 124 Ontario MPPs; fetch and upsert in batches
+  if (runAll || task === "federal" || task === "provincial") {
   try {
     const [federalCount, provincialCount] = await Promise.all([
       prisma.member.count({ where: { jurisdiction: "FEDERAL" } }),
       prisma.member.count({ where: { jurisdiction: "PROVINCIAL" } }),
     ]);
-    if (federalCount < FEDERAL_TARGET) {
+    if ((runAll || task === "federal") && federalCount < FEDERAL_TARGET) {
       const federal = await fetchFederalMembers();
       let federalUpserted = 0;
       for (let i = 0; i < federal.length; i += BATCH_SIZE) {
@@ -237,15 +264,17 @@ export async function runScraperSync(options?: RunScraperSyncOptions): Promise<R
           ? `${federalUpserted} federal MPs upserted (time limit; target ${FEDERAL_TARGET})`
           : `${federalUpserted} federal MPs (target ${FEDERAL_TARGET})`,
       });
-    } else {
+    } else if (runAll || task === "federal") {
       results.push({ step: "E_Roster_Federal", ok: true, detail: `already ${federalCount} federal` });
     }
-    // Always run Provincial sync (never skip) to ensure current Ontario data
+    // Provincial sync when runAll or task=provincial
     let ontario: Awaited<ReturnType<typeof fetchOntarioMpps>> = [];
+    if (runAll || task === "provincial") {
     try {
       ontario = await fetchOntarioMpps();
     } catch (ontarioErr) {
       console.warn("[sync-engine] Ontario MPP fetch failed (continuing without Ontario):", ontarioErr);
+    }
     }
     let ontarioUpserted = 0;
     for (let i = 0; i < ontario.length; i += BATCH_SIZE) {
@@ -282,13 +311,33 @@ export async function runScraperSync(options?: RunScraperSyncOptions): Promise<R
           .catch((err) => console.warn("[sync-engine] Ontario MPP upsert failed:", mpp.id, err));
       }
     }
-    results.push({
-      step: "E_Roster_Ontario",
-      ok: ontario.length > 0,
-      detail: ontarioUpserted < ontario.length
-        ? `${ontarioUpserted} Ontario MPPs upserted (time limit; target ${ONTARIO_MPP_TARGET})`
-        : `${ontarioUpserted} Ontario MPPs (target ${ONTARIO_MPP_TARGET})`,
-    });
+    if (runAll || task === "provincial") {
+      results.push({
+        step: "E_Roster_Ontario",
+        ok: ontario.length > 0,
+        detail: ontarioUpserted < ontario.length
+          ? `${ontarioUpserted} Ontario MPPs upserted (time limit; target ${ONTARIO_MPP_TARGET})`
+          : `${ontarioUpserted} Ontario MPPs (target ${ONTARIO_MPP_TARGET})`,
+      });
+    }
+
+    // Step E1: Enhance members (openParlId + photoUrl fallback/placeholder) immediately after roster sync
+    try {
+      const { openParlUpdated, photoUpdated } = await enhanceMembers();
+      if (openParlUpdated > 0 || photoUpdated > 0) {
+        results.push({
+          step: "E1_EnhanceMembers",
+          ok: true,
+          detail: `openParlId: ${openParlUpdated}, photoUrl: ${photoUpdated}`,
+        });
+      }
+    } catch (e) {
+      results.push({
+        step: "E1_EnhanceMembers",
+        ok: false,
+        detail: e instanceof Error ? e.message : "Enhance members failed",
+      });
+    }
   } catch (e) {
     results.push({
       step: "E_Roster",
@@ -297,7 +346,8 @@ export async function runScraperSync(options?: RunScraperSyncOptions): Promise<R
     });
   }
 
-    // Step E1.5: Backfill missing slugs for all members
+    // Step E1.5: Backfill missing slugs for all members (full sync only)
+    if (runAll) {
     try {
       const { updated } = await backfillSlugsForMembers();
       if (updated > 0) {
@@ -306,8 +356,10 @@ export async function runScraperSync(options?: RunScraperSyncOptions): Promise<R
     } catch {
       /* non-fatal */
     }
+    }
 
     // Step E2: MemberCommittee links (required for The Pulse conflict detection)
+  if (runAll || task === "committees") {
   try {
     const committeeLinks = await syncMemberCommittees();
     results.push({
@@ -322,8 +374,10 @@ export async function runScraperSync(options?: RunScraperSyncOptions): Promise<R
       detail: e instanceof Error ? e.message : "MemberCommittee sync failed",
     });
   }
+  }
 
   // Step F: Integrity Rank + Conflict flags — run for ALL members (no time limit)
+  if (runAll || task === "integrity") {
   try {
     await prisma.disclosure.updateMany({
       data: { conflictFlag: false, conflictReason: null },
@@ -358,6 +412,7 @@ export async function runScraperSync(options?: RunScraperSyncOptions): Promise<R
       ok: false,
       detail: e instanceof Error ? e.message : "Integrity rank sync failed",
     });
+  }
   }
 
   if (results.every((r) => r.ok)) {

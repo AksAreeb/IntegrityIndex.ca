@@ -44,16 +44,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 /**
  * Integrity rank 1–100: based on how quickly disclosures are filed after the disclosure date.
- * Uses createdAt (when we recorded it) vs disclosureDate (when the disclosure is for).
- * Lower delay = higher score. No eligible disclosures => 100 (benefit of doubt).
+ * Returns null when there are no eligible disclosures (so we can show "Data Pending" instead of 100).
  */
 function computeIntegrityRank(
   disclosures: { disclosureDate: Date | null; createdAt: Date }[]
-): number {
+): number | null {
   const withBoth = disclosures.filter(
     (d) => d.disclosureDate != null && d.createdAt != null
   );
-  if (withBoth.length === 0) return 100;
+  if (withBoth.length === 0) return null;
 
   const delaysDays = withBoth.map((d) => {
     const created = new Date(d.createdAt).getTime();
@@ -62,7 +61,6 @@ function computeIntegrityRank(
   });
   const avgDelayDays =
     delaysDays.reduce((a, b) => a + b, 0) / delaysDays.length;
-  // 0 days delay => 100; ~50 days => 0. Penalty 2 points per day.
   const score = Math.round(100 - Math.min(100, avgDelayDays * 2));
   return Math.max(1, Math.min(100, score));
 }
@@ -165,9 +163,10 @@ export default async function MemberProfileMasterPage({
 
   if (!member) notFound();
 
+  const computedRank = computeIntegrityRank(member.disclosures);
   const integrityRank =
-    member.integrityRank ?? computeIntegrityRank(member.disclosures);
-  const grade = rankGrade(integrityRank);
+    member.integrityRank ?? computedRank ?? null;
+  const grade = integrityRank != null ? rankGrade(integrityRank) : null;
 
   const bills = await prisma.bill.findMany({ take: 20 });
   const memberSymbols = [...new Set(member.tradeTickers.map((t) => t.symbol))];
@@ -264,48 +263,71 @@ export default async function MemberProfileMasterPage({
             </p>
           </div>
           <div className="flex-shrink-0 flex flex-col items-center">
-            <div
-              className="relative w-20 h-20 flex items-center justify-center"
-              aria-label={`Integrity Rank ${integrityRank}: ${grade}`}
-            >
-              <svg
-                className="absolute inset-0 w-full h-full -rotate-90"
-                viewBox="0 0 36 36"
+            {integrityRank != null && grade != null ? (
+              <>
+                <div
+                  className="relative w-20 h-20 flex items-center justify-center"
+                  aria-label={`Integrity Rank ${integrityRank}: ${grade}`}
+                >
+                  <svg
+                    className="absolute inset-0 w-full h-full -rotate-90"
+                    viewBox="0 0 36 36"
+                  >
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="16"
+                      fill="none"
+                      stroke="#E2E8F0"
+                      strokeWidth="3"
+                    />
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="16"
+                      fill="none"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      className={ringColor(integrityRank)}
+                      strokeDasharray={`${integrityRank} 100`}
+                    />
+                  </svg>
+                  <span
+                    className={`relative text-xl font-serif font-bold ${gradeColor(grade)} w-12 h-12 rounded-full flex items-center justify-center`}
+                  >
+                    {grade}
+                  </span>
+                </div>
+                <span className="text-xs font-sans text-[#64748B] mt-2">
+                  Integrity Rank
+                </span>
+                <span className="text-sm font-sans font-medium text-[#0F172A]">
+                  {integrityRank}/100
+                </span>
+                <p className="text-[10px] text-[#94A3B8] mt-1 max-w-[120px] text-center">
+                  Based on disclosure filing speed
+                </p>
+              </>
+            ) : (
+              <div
+                className="w-20 h-20 rounded-full bg-[#F1F5F9] border-2 border-dashed border-[#CBD5E1] flex flex-col items-center justify-center px-2"
+                aria-label="Integrity profile pending"
               >
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  stroke="#E2E8F0"
-                  strokeWidth="3"
-                />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  className={ringColor(integrityRank)}
-                  strokeDasharray={`${integrityRank} 100`}
-                />
-              </svg>
-              <span
-                className={`relative text-xl font-serif font-bold ${gradeColor(grade)} w-12 h-12 rounded-full flex items-center justify-center`}
-              >
-                {grade}
-              </span>
-            </div>
-            <span className="text-xs font-sans text-[#64748B] mt-2">
-              Integrity Rank
-            </span>
-            <span className="text-sm font-sans font-medium text-[#0F172A]">
-              {integrityRank}/100
-            </span>
-            <p className="text-[10px] text-[#94A3B8] mt-1 max-w-[120px] text-center">
-              Based on disclosure filing speed
-            </p>
+                <span className="text-xs font-sans font-medium text-[#64748B] text-center leading-tight">
+                  Data Pending
+                </span>
+              </div>
+            )}
+            {integrityRank == null && (
+              <>
+                <span className="text-xs font-sans text-[#64748B] mt-2">
+                  Integrity Rank
+                </span>
+                <p className="text-sm font-sans text-[#64748B] mt-1 max-w-[140px] text-center">
+                  Check back soon for an integrity profile once disclosure data is available.
+                </p>
+              </>
+            )}
           </div>
         </header>
 
@@ -314,6 +336,11 @@ export default async function MemberProfileMasterPage({
           <h2 className="font-serif text-lg font-semibold text-[#0F172A] mb-4">
             Trade History
           </h2>
+          {member.tradeTickers.length === 0 && (
+            <p className="text-sm text-[#64748B] mb-3">
+              Data pending. Check back soon for trade history.
+            </p>
+          )}
           <MemberTradeTable
             trades={member.tradeTickers.map((t) => ({
               id: t.id,
@@ -354,6 +381,11 @@ export default async function MemberProfileMasterPage({
           <h2 className="font-serif text-lg font-semibold text-[#0F172A] mb-4">
             Financial Disclosures
           </h2>
+          {member.disclosures.length === 0 && (
+            <p className="text-sm text-[#64748B] mb-3">
+              Data pending. Check back soon for disclosure records.
+            </p>
+          )}
           <MemberDisclosureTable
             disclosures={member.disclosures.map((d) => ({
               id: d.id,

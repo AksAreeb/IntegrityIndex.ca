@@ -105,8 +105,13 @@ export interface RidingWalletResponse {
 /**
  * GET /api/geo/riding-wallet?postalCode=M5V3A8
  *
- * Resolves Federal + Provincial ridings from postal code, fetches both MP and MPP,
- * their disclosures, primary sectors, Pulse conflict flags, and aggregator metrics.
+ * Resolves Federal + Provincial ridings from postal code (OpenNorth API),
+ * then queries the database for BOTH federal and provincial representatives:
+ * - Federal: Member where jurisdiction = FEDERAL, matched by riding id/name.
+ * - Provincial: Member where jurisdiction = PROVINCIAL (Ontario MPPs), when
+ *   postal is in Ontario and OpenNorth returns a provincial boundary.
+ * (We use a single Member table in Prisma/Supabase; no separate
+ *  federal_ridings/provincial_ridings tables.)
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

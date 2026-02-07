@@ -153,12 +153,17 @@ export async function getRidingWalletByPostalCode(
 
     let provincial: { ridingId: string; ridingName: string } | null = null;
     if (province === "ON") {
-      const ontarioB = boundaries.find(
-        (b) =>
-          b.boundary_set_name &&
-          /ontario/i.test(b.boundary_set_name) &&
-          /electoral|riding|provincial/i.test(b.boundary_set_name)
-      );
+      const ontarioB = boundaries.find((b) => {
+        const set = (b.boundary_set_name ?? "").toLowerCase();
+        const name = (b.name ?? "").toLowerCase();
+        if (set.includes("federal")) return false;
+        const looksOntario =
+          /ontario|provincial/.test(set) || /ontario|electoral district/.test(name);
+        const looksRiding =
+          /electoral|riding|provincial|district|mpp|boundary/.test(set) ||
+          /riding|electoral|district/.test(name);
+        return looksOntario && looksRiding;
+      });
       if (ontarioB) {
         const pName = ontarioB.name ?? "Unknown";
         provincial = {

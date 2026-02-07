@@ -2,11 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client", "pg"],
+  experimental: {
+    ...({
+      instrumentationHook: true,
+    } as Record<string, unknown>),
+    optimizePackageImports: ["lucide-react", "recharts"],
+  },
   async redirects() {
     return [{ source: "/mps", destination: "/members", permanent: false }];
-  },
-  experimental: {
-    optimizePackageImports: ["lucide-react", "recharts"],
   },
   images: {
     remotePatterns: [

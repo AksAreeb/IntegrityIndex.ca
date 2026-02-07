@@ -1,3 +1,11 @@
+/**
+ * Static riding metadata (name, representative placeholder, rating).
+ * For postal code lookups that return both Federal MP and Provincial MLA/MPP,
+ * use getRidingWalletByPostalCode in @/lib/api/geo.ts and the API
+ * GET /api/geo/riding-wallet?postalCode=... which query the database for
+ * both federal and provincial representatives (Prisma Member table, not separate
+ * federal_ridings/provincial_ridings tables).
+ */
 export type OversightMode = "federal" | "provincial";
 
 export interface RidingInfo {

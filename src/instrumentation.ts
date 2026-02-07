@@ -1,38 +1,27 @@
-const INSTRUMENTATION_DB_TIMEOUT_MS = 15_000;
-
 /**
- * Next.js Instrumentation — Runs once when the Node.js server starts.
- * 1. Seed check: if Sector or Committee tables are empty, ensure seed data (guarded by try/catch + timeout).
- * 2. Slug backfill: generates slugs for members missing them.
- * DB operations are wrapped in try/catch with a timeout so an unavailable DB during build/boot does not crash the deployment.
+ * Runs once when the Next.js server starts. Triggers a small initial sync
+ * so the first request doesn't hit an empty roster. Wrapped in try/catch so
+ * a busy database during deployment doesn't crash the build.
  */
-export async function register(): Promise<void> {
+export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  if (!process.env.DATABASE_URL) return; // Skip during build or when DB not configured
-
-  const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
-    Promise.race([
-      promise,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Database operation timed out after ${ms}ms`)), ms)
-      ),
-    ]);
 
   try {
-    const { ensureSeedData } = await import("@/lib/seed-check");
-    await withTimeout(ensureSeedData(), INSTRUMENTATION_DB_TIMEOUT_MS);
-  } catch (e) {
-    console.warn("[instrumentation] Seed check failed (DB may be unavailable during build/boot):", e instanceof Error ? e.message : e);
-    return; // Do not block deployment; skip slug backfill if seed check failed
-  }
-
-  try {
-    const { backfillSlugsForMembers } = await import("@/lib/db-utils");
-    const { updated } = await withTimeout(backfillSlugsForMembers(), INSTRUMENTATION_DB_TIMEOUT_MS);
-    if (updated > 0) {
-      console.log(`[instrumentation] Backfilled ${updated} member slug(s)`);
+    const base =
+      process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const secret = process.env.CRON_SECRET;
+    const url = `${base}/api/admin/sync?limit=5`;
+    const res = await fetch(url, {
+      method: "GET",
+      headers: secret ? { Authorization: `Bearer ${secret}` } : {},
+      signal: AbortSignal.timeout(55_000),
+    });
+    if (!res.ok) {
+      console.warn("[instrumentation] Initial sync returned", res.status, await res.text().catch(() => ""));
     }
   } catch (e) {
-    console.warn("[instrumentation] Slug backfill failed (non-fatal):", e instanceof Error ? e.message : e);
+    console.warn("[instrumentation] Initial sync skipped (database busy or unavailable):", e instanceof Error ? e.message : e);
   }
 }

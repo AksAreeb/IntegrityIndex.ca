@@ -2,6 +2,18 @@ import { prisma } from "@/lib/prisma";
 import type { MemberProfile, Asset, Jurisdiction, IndustryShare, VoteRecord } from "@/types";
 import { getMemberProfile as getMockMemberProfile } from "@/lib/fallback-data";
 import { calculateIntegrityRank } from "@/lib/sync-engine";
+import { enhanceMembers } from "@/lib/enhance-members";
+
+/**
+ * Runs the enhance-members logic immediately after members are fetched/upserted
+ * (e.g. from OurCommons or Open Parliament): sets openParlId from name slug and
+ * fixes photoUrl. If the image URL is missing or returns 404, sets a fallback
+ * placeholder so the UI never shows a broken image. Call this after syncing the
+ * member roster.
+ */
+export async function syncMembers(): Promise<{ openParlUpdated: number; photoUpdated: number }> {
+  return enhanceMembers();
+}
 
 /**
  * Fetches a member by riding ID (same identifier as GeoJSON riding_id used in GovernanceMap).

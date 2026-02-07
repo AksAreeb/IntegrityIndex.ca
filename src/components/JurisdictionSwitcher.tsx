@@ -2,6 +2,11 @@
 
 import { useJurisdiction } from "@/contexts/JurisdictionContext";
 
+/**
+ * Filters the Members directory and search results (All / Federal / Provincial).
+ * Does not affect my-riding or postal-code results: those always return both
+ * federal MP and provincial MPP (Ontario) when available from the API.
+ */
 export function JurisdictionSwitcher() {
   const { jurisdiction, setJurisdiction, primaryColor } = useJurisdiction();
 

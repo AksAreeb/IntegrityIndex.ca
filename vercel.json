@@ -1,8 +1,6 @@
 {
   "crons": [
-    {
-      "path": "/api/admin/system-check",
-      "schedule": "0 4 * * *"
-    }
+    { "path": "/api/admin/system-check", "schedule": "0 4 * * *" },
+    { "path": "/api/admin/sync?limit=20", "schedule": "0 */4 * * *" }
   ]
 }
