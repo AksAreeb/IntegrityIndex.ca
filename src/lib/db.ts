@@ -3,6 +3,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { slugFromName } from "@/lib/slug";
 
+/**
+ * Global Singleton: attach Prisma client and pg Pool to globalThis so the same
+ * instance is reused across hot-reloads and function invocations in the same process.
+ * Prevents "Connection Timeout" and connection exhaustion during Cron and serverless.
+ */
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
   prismaPool: Pool | undefined;
@@ -90,5 +95,8 @@ function createPrismaClient(): PrismaClient {
   return extended as unknown as PrismaClient;
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-if (!globalForPrisma.prisma) globalForPrisma.prisma = prisma;
+// Single assignment: reuse existing client or create once and store on global
+if (!globalForPrisma.prisma) {
+  globalForPrisma.prisma = createPrismaClient();
+}
+export const prisma = globalForPrisma.prisma;
