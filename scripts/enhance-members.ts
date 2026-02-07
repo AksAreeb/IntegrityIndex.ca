@@ -28,7 +28,7 @@ function isKnownBrokenPhotoUrl(url: string | null): boolean {
   return false;
 }
 
-async function photoUrlReturns404(url: string): boolean {
+async function photoUrlReturns404(url: string): Promise<boolean> {
   try {
     const res = await axios.head(url, HEAD_OPTS);
     return res.status === 404;
