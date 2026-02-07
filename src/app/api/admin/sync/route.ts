@@ -1,7 +1,8 @@
 /**
- * Batched sync: upserts Federal MPs and Ontario MPPs with limit/offset.
- * Use ?limit=10&offset=0 (defaults). Stops at 50s to avoid Vercel killing the process.
- * Updates Member party and photo URLs. Uses Prisma upsert to avoid duplicates.
+ * Durable Batched Sync: upserts Federal MPs and Ontario MPPs with limit/offset.
+ * Uses Promise.race with a 50s timeout so Vercel doesn't kill the process.
+ * Updates party and imageUrl (photoUrl); uses Prisma upsert to prevent duplicates.
+ * After the batch, runs enhance-members logic for photo fallbacks when time allows.
  */
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +10,7 @@ import { fetchFederalMembers } from "@/lib/sync";
 import { fetchOntarioMpps } from "@/lib/scrapers/ontario";
 import { getMemberPhotoUrl as getFederalPhotoUrl } from "@/lib/scrapers/ciecScraper";
 import { slugFromName } from "@/lib/slug";
+import { enhanceMembers } from "@/lib/enhance-members";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -21,6 +23,21 @@ const OLA_MPP_PHOTO_BASE =
 function normalize(s: string | null | undefined, defaultVal: string): string {
   const t = (s ?? "").trim();
   return t && t !== "(not available)" ? t : defaultVal;
+}
+
+function splitName(fullName: string): { firstName: string; lastName: string } {
+  const name = (fullName ?? "").trim();
+  if (!name) return { firstName: "Unknown", lastName: "Unknown" };
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return { firstName: parts[0], lastName: parts[0] };
+  return {
+    firstName: parts.slice(0, -1).join(" "),
+    lastName: parts[parts.length - 1],
+  };
+}
+
+function timeout(ms: number): Promise<"timeout"> {
+  return new Promise((resolve) => setTimeout(() => resolve("timeout"), ms));
 }
 
 function requireAuth(request: Request, searchParams: URLSearchParams): NextResponse | null {
@@ -50,26 +67,44 @@ export async function GET(request: Request) {
       fetchOntarioMpps().catch(() => [] as Awaited<ReturnType<typeof fetchOntarioMpps>>),
     ]);
 
-    type FederalItem = { type: "federal"; id: string; name: string; riding: string; party: string };
+    type FederalItem = {
+      type: "federal";
+      id: string;
+      name: string;
+      firstName: string;
+      lastName: string;
+      riding: string;
+      party: string;
+    };
     type ProvincialItem = {
       type: "provincial";
       id: string;
       name: string;
+      firstName: string;
+      lastName: string;
       riding: string;
       party: string;
       photoUrl: string;
       slug: string;
     };
 
-    const federalItems: FederalItem[] = federalList.map((m) => ({
-      type: "federal" as const,
-      id: m.id,
-      name: normalize(m.name, "Unknown"),
-      riding: normalize(m.riding, "Unknown"),
-      party: normalize(m.party, "Independent"),
-    }));
+    const federalItems: FederalItem[] = federalList.map((m) => {
+      const name = normalize(m.name, "Unknown");
+      const { firstName, lastName } = splitName(name);
+      return {
+        type: "federal" as const,
+        id: m.id,
+        name,
+        firstName,
+        lastName,
+        riding: normalize(m.riding, "Unknown"),
+        party: normalize(m.party, "Independent"),
+      };
+    });
 
     const provincialItems: ProvincialItem[] = ontarioList.map((m) => {
+      const name = normalize(m.name, "Unknown");
+      const { firstName, lastName } = splitName(name);
       const olaSlug = (m as { olaSlug?: string }).olaSlug ?? m.id.replace(/^ON-/, "");
       const photoUrl =
         (m as { imageUrl?: string }).imageUrl?.trim() ||
@@ -77,11 +112,13 @@ export async function GET(request: Request) {
       return {
         type: "provincial" as const,
         id: m.id,
-        name: normalize(m.name, "Unknown"),
+        name,
+        firstName,
+        lastName,
         riding: normalize(m.riding, "Unknown"),
         party: normalize(m.party, "Independent"),
         photoUrl,
-        slug: slugFromName(m.name),
+        slug: slugFromName(name),
       };
     });
 
@@ -93,18 +130,19 @@ export async function GET(request: Request) {
     let timedOut = false;
 
     for (const item of batch) {
-      if (Date.now() - startTime >= TIME_LIMIT_MS) {
-        timedOut = true;
-        break;
-      }
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(1000, TIME_LIMIT_MS - elapsed);
+      const timeoutPromise = timeout(remaining);
 
-      if (item.type === "federal") {
-        await prisma.member
-          .upsert({
+      const doUpsert = async () => {
+        if (item.type === "federal") {
+          await prisma.member.upsert({
             where: { id: item.id },
             create: {
               id: item.id,
               name: item.name,
+              firstName: item.firstName,
+              lastName: item.lastName,
               riding: item.riding,
               party: item.party,
               jurisdiction: "FEDERAL",
@@ -113,20 +151,21 @@ export async function GET(request: Request) {
             },
             update: {
               name: item.name,
+              firstName: item.firstName,
+              lastName: item.lastName,
               riding: item.riding,
               party: item.party,
               photoUrl: getFederalPhotoUrl(item.id),
             },
-          })
-          .then(() => { upserted += 1; })
-          .catch((err) => console.warn("[sync] Federal upsert failed:", item.id, err));
-      } else {
-        await prisma.member
-          .upsert({
+          });
+        } else {
+          await prisma.member.upsert({
             where: { id: item.id },
             create: {
               id: item.id,
               name: item.name,
+              firstName: item.firstName,
+              lastName: item.lastName,
               riding: item.riding,
               party: item.party,
               jurisdiction: "PROVINCIAL",
@@ -136,14 +175,35 @@ export async function GET(request: Request) {
             },
             update: {
               name: item.name,
+              firstName: item.firstName,
+              lastName: item.lastName,
               riding: item.riding,
               party: item.party,
               photoUrl: item.photoUrl,
               slug: item.slug,
             },
-          })
-          .then(() => { upserted += 1; })
-          .catch((err) => console.warn("[sync] Provincial upsert failed:", item.id, err));
+          });
+        }
+      };
+
+      const result = await Promise.race([doUpsert().then(() => "ok"), timeoutPromise]);
+      if (result === "timeout") {
+        timedOut = true;
+        break;
+      }
+      upserted += 1;
+    }
+
+    let enhanceResult: { openParlUpdated: number; photoUpdated: number } | null = null;
+    if (!timedOut && Date.now() - startTime < TIME_LIMIT_MS - 5000) {
+      try {
+        const raced = await Promise.race([
+          enhanceMembers(),
+          timeout(5000),
+        ]);
+        if (raced !== "timeout") enhanceResult = raced;
+      } catch {
+        // non-fatal
       }
     }
 
@@ -160,6 +220,7 @@ export async function GET(request: Request) {
       timedOut,
       done,
       elapsedMs: Date.now() - startTime,
+      ...(enhanceResult && { enhance: enhanceResult }),
     });
   } catch (e) {
     console.error("[sync] GET failed", e);

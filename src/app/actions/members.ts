@@ -7,6 +7,8 @@ import { Prisma } from "@/generated/prisma/client";
 export interface MemberSearchResult {
   id: string;
   name: string;
+  firstName?: string | null;
+  lastName?: string | null;
   riding: string;
   party: string;
   jurisdiction: string;
@@ -81,6 +83,8 @@ export async function listMembers(
     select: {
       id: true,
       name: true,
+      firstName: true,
+      lastName: true,
       riding: true,
       party: true,
       jurisdiction: true,

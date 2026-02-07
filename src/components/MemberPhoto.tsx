@@ -15,6 +15,8 @@ interface MemberPhotoProps {
   member: {
     id: string;
     name?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
     jurisdiction: string;
     photoUrl?: string | null;
     officialId?: string | null;
@@ -52,7 +54,11 @@ export function MemberPhoto({
         ? fallback44 ?? PARLIAMENTARY_SILHOUETTE
         : primarySrc;
 
-  const altText = alt ?? member.name ?? "Member photo";
+  const fullName =
+    (member.firstName != null && member.lastName != null
+      ? `${member.firstName} ${member.lastName}`.trim()
+      : null) ?? member.name ?? "";
+  const altText = alt ?? fullName || "Member photo";
 
   const isKnownHost =
     src.startsWith("https://www.ourcommons.ca") ||

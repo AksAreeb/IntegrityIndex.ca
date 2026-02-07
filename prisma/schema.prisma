@@ -18,6 +18,8 @@ model Member {
   id                String            @id @default(cuid())
   slug              String?           @unique // SEO: integrityindex.ca/member/justin-trudeau
   name              String
+  firstName         String?           // Parsed from name for display/alt
+  lastName          String?           // Parsed from name for display/alt
   riding            String
   party             String
   jurisdiction      Jurisdiction

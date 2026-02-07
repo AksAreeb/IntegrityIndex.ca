@@ -115,6 +115,8 @@ export default async function MemberProfileMasterPage({
       select: {
         id: true,
         name: true,
+        firstName: true,
+        lastName: true,
         riding: true,
         party: true,
         jurisdiction: true,
@@ -140,6 +142,8 @@ export default async function MemberProfileMasterPage({
       select: {
         id: true,
         name: true,
+        firstName: true,
+        lastName: true,
         riding: true,
         party: true,
         jurisdiction: true,
@@ -162,6 +166,8 @@ export default async function MemberProfileMasterPage({
     }));
 
   if (!member) notFound();
+
+  const displayName = member.name || [member.firstName, member.lastName].filter(Boolean).join(" ").trim() || "Member";
 
   const computedRank = computeIntegrityRank(member.disclosures);
   const integrityRank =
@@ -255,7 +261,7 @@ export default async function MemberProfileMasterPage({
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="font-serif text-3xl font-semibold text-[#0F172A]">
-              {member.name}
+              {displayName}
             </h1>
             <p className="text-[#64748B] font-sans mt-1">
               {member.riding} · {member.party} · {member.jurisdiction}
