@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import { runScraperSync } from "@/lib/sync-engine";
 import { runVerifySync } from "@/lib/verify-sync";
 
-export const maxDuration = 600; // 10 min for full Super Sync
+export const maxDuration = 60; // Vercel Hobby plan maximum (seconds)
 export const dynamic = "force-dynamic";
 
 /** Compare Authorization header to CRON_SECRET; return 401 if missing or mismatch. */
