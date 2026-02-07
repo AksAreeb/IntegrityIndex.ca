@@ -109,7 +109,7 @@ export function CommandKSearchBar() {
 
   const searchForm = (
     inputId: string,
-    ref: React.RefObject<HTMLInputElement | null>,
+    ref: React.RefObject<HTMLInputElement>,
     onSubmit: (e: React.FormEvent) => void,
     variant: "hero" | "modal" = "hero"
   ) => {

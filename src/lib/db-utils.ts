@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import type { Jurisdiction } from "@/types";
 import { slugFromName } from "@/lib/slug";
 

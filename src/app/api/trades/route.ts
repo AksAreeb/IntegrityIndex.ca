@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { getLiveStockPrice } from "@/lib/api/stocks";
 import { checkConflict } from "@/lib/conflict-audit";
 

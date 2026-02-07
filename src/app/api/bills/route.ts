@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 const CACHE_FINANCIAL = "public, s-maxage=1800, stale-while-revalidate=1800";
 

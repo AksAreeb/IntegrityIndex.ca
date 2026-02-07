@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/AppShell";
 import { LobbyistHeatmap } from "@/components/experimental/LobbyistHeatmap";
 import { WealthTimeline, type DisclosurePoint } from "@/components/experimental/WealthTimeline";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 

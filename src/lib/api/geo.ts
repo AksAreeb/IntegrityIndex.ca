@@ -1,5 +1,5 @@
 import axios from "axios";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 /** OpenNorth Represent API: postcodes endpoint for postal code → boundaries */
 const OPEN_NORTH_POSTCODES_BASE = "https://represent.opennorth.ca/postcodes";

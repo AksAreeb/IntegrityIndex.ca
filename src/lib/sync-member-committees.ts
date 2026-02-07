@@ -5,7 +5,7 @@
  */
 
 import axios from "axios";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 const FINA_OPENPARLIAMENT_URL =
   "https://api.openparliament.ca/committees/finance/?format=json";

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import { LegislationTable } from "./LegislationTable";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/constants";
 import { getBillSummary } from "@/lib/fallback-data";
 import { getLinkedTickers, getSectorImpact } from "@/lib/bill-sectors";

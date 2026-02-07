@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import { StatusPulse } from "@/components/ui/StatusPulse";
 import { DashboardMapAndLeaders } from "./DashboardMapAndLeaders";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {

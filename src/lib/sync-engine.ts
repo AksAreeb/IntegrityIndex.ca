@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { resolveSectorForAsset } from "@/lib/sector-resolver";
 
 /** Re-export The Pulse conflict auditor for use across the app. */

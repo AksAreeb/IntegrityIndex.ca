@@ -2,7 +2,7 @@
  * Resolves asset description/symbol to Sector ID for Disclosure linkage.
  * Used by sync-engine when saving disclosures.
  */
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 let _cache: Map<string, string> | null = null;
 

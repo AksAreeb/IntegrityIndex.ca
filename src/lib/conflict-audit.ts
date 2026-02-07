@@ -4,7 +4,7 @@
  * when MPs hold assets in sectors they legislate on.
  */
 
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 /** Parliamentary Committee name → Economic Sector(s) for conflict detection. */
 export const COMMITTEE_TO_SECTOR: Record<string, string[]> = {

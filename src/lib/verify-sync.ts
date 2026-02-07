@@ -4,7 +4,7 @@
  * Used by scripts/verify-sync.ts (CLI) and /api/admin/system-check (Super Sync report).
  */
 
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { fetchLegisinfoOverview } from "@/lib/api/legisinfo";
 
 const FEDERAL_MIN = 343;

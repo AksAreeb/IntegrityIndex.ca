@@ -1,6 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 const LEGISINFO_OVERVIEW_XML =
   "https://www.parl.ca/legisinfo/en/overview/xml";

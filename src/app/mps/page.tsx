@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { SyncButton } from "@/components/SyncButton";
 import { MembersDataTable } from "./MembersDataTable";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export const revalidate = 300;
 

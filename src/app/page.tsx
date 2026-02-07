@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import { CommandKSearchBar } from "@/components/CommandKSearchBar";
 import { PulseFeed } from "@/components/PulseFeed";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/constants";
 
 export const revalidate = 3600;

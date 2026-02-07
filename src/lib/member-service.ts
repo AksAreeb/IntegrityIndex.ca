@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import type { MemberProfile, Asset, Jurisdiction, IndustryShare, VoteRecord } from "@/types";
 import { getMemberProfile as getMockMemberProfile } from "@/lib/fallback-data";
 import { calculateIntegrityRank } from "@/lib/sync-engine";

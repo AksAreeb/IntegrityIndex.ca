@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 const OPEN_NORTH_URL = "https://represent.opennorth.ca/postcodes/K1A0B1/";
 const FINNHUB_URL = "https://finnhub.io/api/v1/quote";

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { getRidingWalletByPostalCode } from "@/lib/api/geo";
 import { checkConflict } from "@/lib/conflict-audit";
 import { ASSET_TO_SECTOR } from "@/lib/conflict-audit";

@@ -3,7 +3,7 @@
  * 1. Seed check: throws if Sector or Committee tables are empty.
  * 2. Slug backfill: generates slugs for members missing them.
  */
-export async function register() {
+export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (!process.env.DATABASE_URL) return; // Skip during build or when DB not configured
 

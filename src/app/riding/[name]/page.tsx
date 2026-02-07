@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/constants";
 import { AppShell } from "@/components/AppShell";
 
